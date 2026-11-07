@@ -1,8 +1,9 @@
 # Ball possession from automatic tracking — technical document
 
 **Team:** Saad Yaqine · **Challenge:** More than a Hack 2027, Initial Challenge (Phase 1)
-**Submission:** `saad_yaqine.csv`, method `v6` · **Repository:** see README for the link and
-the exact command that regenerates the file.
+**Submission:** `saad_yaqine.csv`, method `v6` · **Repository:**
+https://github.com/saadyaq/more-than-a-hack-2027 (branch `dev`; the README gives the exact command
+that regenerates the file).
 
 ## 1. Approach
 
