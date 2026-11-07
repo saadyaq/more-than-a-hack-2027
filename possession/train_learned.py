@@ -47,8 +47,8 @@ def main(argv=None):
     import argparse
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--version", default="v7", help="output version name (v7 = original files)")
-    parser.add_argument("--profile", default="v1", choices=["v1", "v2"],
-                        help="degrader profile: v2 also matches player loss and speeds")
+    parser.add_argument("--profile", default="v1", choices=["v1", "v2", "v3"],
+                        help="degrader profile: v2 matches player loss and speeds; v3 also fills dead-ball gaps")
     args = parser.parse_args(argv)
     cases = load_cases(GAMES, SEEDS, profile=args.profile)
     rows = {}

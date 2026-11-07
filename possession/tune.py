@@ -25,7 +25,8 @@ import pandas as pd
 from possession import params as p
 from possession.decode import decode
 from possession.evidence import build_evidence
-from possession.external import FPS, degrade, load_metrica_events, load_metrica_game, possession_truth
+from possession.external import (FPS, degrade, fill_dead_ball, load_metrica_events, load_metrica_game,
+                                 possession_truth)
 from possession.external_eval import score
 
 # Params
@@ -91,8 +92,12 @@ def load_cases(games, seeds, profile="v1"):
     for game in games:
         tracking, blocks, home = load_metrica_game(game)
         truth = possession_truth(load_metrica_events(game), len(tracking.ball), blocks, home)
+        source, degrader = tracking, profile
+        if profile == "v3":
+            # v3 = v2's player loss and speeds, on tracking whose dead-ball gaps were filled.
+            source, degrader = fill_dead_ball(tracking, truth), "v2"
         for seed in seeds:
-            cases.append((game, seed, degrade(tracking, seed, blocks=blocks, profile=profile),
+            cases.append((game, seed, degrade(source, seed, blocks=blocks, profile=degrader),
                           blocks, truth))
     return cases
 

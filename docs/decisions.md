@@ -131,3 +131,20 @@
   0.627 / 0.662 / 0.560), macroF1 0.798, on the more realistic data. Submission switched to v8.
 - **Competition match (diagnostics only):** 284 possessions, D 29-35 %, Smart Tagging agreement
   60-61.5 % (highest of all versions). SHA-1 e0f12d36…
+
+## 2026-11-08 — Dead-ball fill (degrader profile v3) and v9 (current submission)
+
+- **Artefact found:** the Metrica sample tracking already lacks the ball on 32-41 % of graded
+  frames, 82-90 % of them dead ball, so degraded external data taught "missing ball => dead".
+  In the competition ATD the ball is out of the pitch at its last sighting before only 11 % of
+  long gaps (simulator v2: 39-55 %).
+- **Fix:** `fill_dead_ball` reconstructs the ball during external dead-ball truth by linear
+  interpolation between exit and restart points, then profile-v2 degradation. Long gaps now start
+  out of the pitch 9 % of the time; dead share inside gaps 40-45 % (was 71-87 %).
+- **v9** (trained on profile v3): out-of-fold spellF1 0.520, macroF1 0.772. Lower than v8's 0.616
+  because the data is harder. Cross-simulator check: a v8-style model trained on v2 data and tested
+  out of fold on v3 data scores 0.394 / 0.637, so v8 leaned on the artefact. Submission -> v9.
+- **Competition (diagnostics only):** 249 possessions, D 35-43 % (v8 29-35 %), Smart Tagging
+  agreement 53-58 % (v8 60-62 %). SHA-1 ee5b89c4…
+- **Rejected:** simulated Smart Tagging to fit its weights — the real tags' accuracy is unknown,
+  so any simulated noise level would be arbitrary.

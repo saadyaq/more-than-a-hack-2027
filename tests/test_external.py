@@ -244,3 +244,17 @@ def test_epts_substitution_mapping_and_json(tmp_path, monkeypatch):
     events = ext.load_metrica_events(3, tmp_path)
     assert events['Start Frame'].tolist() == [0] and events['End Frame'].tolist() == [2]
     assert events['Subtype'].tolist() == ['ONE;TWO']
+
+
+def test_fill_dead_ball_only_fills_dead_frames():
+    from possession.data import Tracking
+    from possession.external import fill_dead_ball
+    ball = np.full((10, 3), np.nan, dtype=np.float32)
+    ball[0, :2] = (0.0, 0.0)
+    ball[9, :2] = (0.9, 0.9)
+    truth = np.array(list("HHDDDDHHHH"))
+    players = np.full((10, 2, 3), 0.5, dtype=np.float32)
+    filled = fill_dead_ball(Tracking(players, ball, np.array([0, 1], np.int8), (105., 68.)), truth)
+    seen = np.isfinite(filled.ball[:, 0])
+    np.testing.assert_array_equal(seen, [True, False, True, True, True, True, False, False, False, True])
+    np.testing.assert_allclose(filled.ball[2:6, 0], [0.2, 0.3, 0.4, 0.5], atol=1e-6)

@@ -234,6 +234,30 @@ def load_metrica_events(game_id, root=None):
     return events
 
 
+def fill_dead_ball(tracking, truth):
+    """Copy of tracking with the ball reconstructed where it is missing during dead-ball truth.
+
+    The Metrica sample tracking drops the ball at almost every stoppage (82-90 % of its missing
+    frames are dead ball), while the competition tracker keeps seeing it out of play and loses it
+    mostly in open play. Left as is, degraded external data teaches "ball missing => dead ball".
+    During a stoppage the ball travels from where it left play to where play restarts, so it is
+    filled by linear interpolation between the last sighting before and the first after. Alive
+    frames are never filled: those gaps are genuine occlusions.
+    """
+    ball = np.array(tracking.ball, dtype=np.float64, copy=True)
+    seen = np.isfinite(ball[:, :2]).all(axis=1)
+    fill = (~seen) & (truth == 'D')
+    known = np.flatnonzero(seen)
+    if len(known) >= 2 and fill.any():
+        frames = np.flatnonzero(fill)
+        inside = (frames > known[0]) & (frames < known[-1])  # never extrapolate past the ends
+        frames = frames[inside]
+        for axis in (0, 1):
+            ball[frames, axis] = np.interp(frames, known, ball[known, axis])
+    ball = with_speeds(ball[:, :2])
+    return Tracking(tracking.players, ball.astype(np.float32), tracking.team_of_slot, tracking.pitch)
+
+
 def possession_truth(events, n_frames, blocks, home):
     """Derive last controlled possession while the ball is in play (CHALLENGE.md).
 

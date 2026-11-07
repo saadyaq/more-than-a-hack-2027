@@ -73,7 +73,7 @@ TUNED_V6 = json.loads((Path(__file__).resolve().parent / "tuned_v6.json").read_t
 METHOD_TRANSITION_PENALTIES["v6"] = TUNED_V6["penalties"]
 # Learned versions decode with penalties saved next to their model (possession/train_learned.py).
 # A file is absent only before its first training run, which imports this module to produce it.
-for _version in ("v7", "v8"):
+for _version in ("v7", "v8", "v9"):
     _learned = Path(__file__).resolve().parent / "learned_{}.json".format(_version)
     if _learned.exists():
         METHOD_TRANSITION_PENALTIES[_version] = json.loads(_learned.read_text())["penalties"]

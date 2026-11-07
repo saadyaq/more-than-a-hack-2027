@@ -23,12 +23,12 @@ This writes `evaluation/results/saad_yaqine.csv`, runs the official `validate_su
 and prints the file's SHA-1. The submitted file has
 
 ```
-e0f12d36d8336e02d59c1e8952f3724c8fcddd54  evaluation/results/saad_yaqine.csv
+ee5b89c4c46fcfe9e472e62a86d7d7823a3d2a2f  evaluation/results/saad_yaqine.csv
 ```
 
 The run takes about 10 s the first time (it parses and caches the tracking under
 `$MTAH_DATA_DIR/cache/`) and about 4 s afterwards. It is deterministic. Everything it needs beyond
-the data bundle is committed: `possession/learned_model_v8.joblib` and `possession/learned_v8.json`
+the data bundle is committed: `possession/learned_model_v9.joblib` and `possession/learned_v9.json`
 (classifier and decoder settings), `possession/shape_model.json`, and `possession/params.py`.
 
 ## Re-run the training (optional)
@@ -39,7 +39,7 @@ rebuilt without touching the competition data's labels:
 ```bash
 scripts/fetch_external_data.sh                      # Metrica public sample games -> ~/ext_data/metrica
 .venv/bin/python -m possession.train_shape          # -> possession/shape_model.json   (~10 s)
-.venv/bin/python -m possession.train_learned --version v8 --profile v2   # -> learned_model_v8.joblib (~15 min)
+.venv/bin/python -m possession.train_learned --version v9 --profile v3   # -> learned_model_v9.joblib (~15 min)
 .venv/bin/python -m possession.tune --no-folds \
     --start possession/tuned_v4.json --output possession/tuned_v6.json      # (~40 min)
 .venv/bin/python -m possession.external_eval --methods baseline v3          # external scores
@@ -57,7 +57,7 @@ scripts/fetch_external_data.sh                      # Metrica public sample game
 
 | path | what |
 |---|---|
-| `possession/run.py` | CLI: `python -m possession.run --method v8 --name <file stem>` |
+| `possession/run.py` | CLI: `python -m possession.run --method v9 --name <file stem>` |
 | `possession/data.py` | cached loader for the provided tracking and Smart Tagging |
 | `possession/ball.py` | ball gap interpolation, ball speed, out-of-pitch test |
 | `possession/evidence.py` | per-frame log-evidence for H / A / D |

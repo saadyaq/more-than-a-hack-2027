@@ -1,7 +1,7 @@
 # Ball possession from automatic tracking — technical document
 
 **Team:** Saad Yaqine · **Challenge:** More than a Hack 2027, Initial Challenge (Phase 1)
-**Submission:** `saad_yaqine.csv`, method `v8` · **Repository:**
+**Submission:** `saad_yaqine.csv`, method `v9` · **Repository:**
 https://github.com/saadyaq/more-than-a-hack-2027 (branch `dev`; the README gives the exact command
 that regenerates the file).
 
@@ -103,6 +103,15 @@ used, and the video was never used.
     piece, and each half starts dead until kick-off.
 
   This gives 258-325 possessions per game, of 11-12 s on average.
+- **Dead-ball ball positions.** The Metrica sample tracking drops the ball at almost every
+  stoppage: 32-41 % of graded frames have no ball, and 82-90 % of those are dead ball. The
+  competition tracker behaves differently. It keeps seeing the ball out of play and loses it mostly
+  in open play: the ball is out of the pitch at its last sighting before only 11 % of long gaps.
+  Left as is, the external data teaches the model that a missing ball means a dead ball. During
+  stoppages we therefore reconstruct the ball by linear interpolation between its exit point and
+  its restart point (`fill_dead_ball`); open-play gaps are left untouched. After degradation,
+  9 % of long gaps start with the ball out of the pitch (competition: 11 %), and the share of dead
+  ball inside gaps falls from 71-87 % to 40-45 %, its overall base rate.
 - **Degradation.** The sample tracking is cleaner than the competition's, so it is degraded to
   match the automatic tracker:
   - the ball is removed on 41 % of frames, in blackouts whose lengths follow the competition's
@@ -134,16 +143,20 @@ used, and the video was never used.
 | v6: hand-written evidence + team shape, parameters tuned | 0.55 | 0.78 | in-sample |
 | tuned hand-written evidence, leave-one-game-out | 0.49 | — | held-out game |
 | v7: learned classifier, first degrader | 0.61 | 0.80 | out-of-fold, held-out game |
-| **v8: learned classifier, realistic player loss and speeds** | **0.62** | **0.80** | **out-of-fold, held-out game** |
+| v8: learned classifier, realistic player loss and speeds | 0.62 | 0.80 | out-of-fold, held-out game |
+| **v9: as v8, dead-ball ball positions reconstructed** | **0.52** | **0.77** | **out-of-fold, held-out game, harder data** |
 
-v8 per held-out game: game 1 0.627, game 2 0.662, game 3 0.560. Every v7 and v8 number is measured
-on a game the classifier never saw. v8's degraded data is the more realistic of the two, so it is the
-submission. The decoder settings were tuned on the pooled out-of-fold
+Every v7, v8 and v9 number is measured on a game the classifier never saw. v9's score is lower
+because its data is harder, not because the model is worse: v7 and v8 were scored on data where the
+ball was mostly missing during stoppages, which made missing ball an easy dead-ball cue. On the
+same realistic data as v9, a v8-style model (trained on v8's data, tested out of fold on v9's)
+scores spellF1 0.39 and macroF1 0.64, against 0.52 and 0.77 for v9. So v9 is the submission. Per
+held-out game: 0.515, 0.525, 0.520. The decoder settings were tuned on the pooled out-of-fold
 predictions, which is slightly optimistic for four parameters.
 
-### 3.2 Final settings (`possession/learned_v8.json`)
+### 3.2 Final settings (`possession/learned_v9.json`)
 
-T = 0.4 · P_SWITCH = 4 · P_TO_DEAD = 32 · P_FROM_DEAD = 0 · prior (H, A, D) =
+T = 0.4 · P_SWITCH = 8 · P_TO_DEAD = 32 · P_FROM_DEAD = 0 · prior (H, A, D) =
 (0.28, 0.28, 0.44).
 
 ## 4. Possession rules implemented
@@ -172,7 +185,10 @@ T = 0.4 · P_SWITCH = 4 · P_TO_DEAD = 32 · P_FROM_DEAD = 0 · prior (H, A, D) 
   16/20/21 against 15/20/21, still-player speed p10 0.60 against 0.60 m/s). The ball still
   reappears outside the pitch more often in the competition (restarts taken from beyond the line). External scores are an estimate, not a prediction of our score.
 - **Untuned Smart Tagging weights.** The external games have no Smart Tagging, so its weights
-  are rescaled by reasoning, not fitted.
+  are rescaled by reasoning, not fitted. Simulating tags to fit them was rejected: the real tags'
+  accuracy is unknown, so any simulated noise level would be arbitrary. On the competition match,
+  v9 agrees with the tagged attacking team on 53-58 % of tagged frames (v8: 60-62 %), while its
+  predicted dead-ball share (35-43 %) is closer to football's usual ~40 % than v8's (29-35 %).
 - **Three training games.** More external games with tracking and events would reduce variance,
   and per-game scores already range from 0.56 to 0.64.
 - **Next steps:** synthesise Smart Tagging-like cues on the external games so their weights can be fitted; add
@@ -184,12 +200,12 @@ T = 0.4 · P_SWITCH = 4 · P_TO_DEAD = 32 · P_FROM_DEAD = 0 · prior (H, A, D) 
 python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 export MTAH_DATA_DIR=/path/to/unpacked/bundle
 scripts/reproduce.sh saad_yaqine
-# -> evaluation/results/saad_yaqine.csv, SHA-1 e0f12d36d8336e02d59c1e8952f3724c8fcddd54
+# -> evaluation/results/saad_yaqine.csv, SHA-1 ee5b89c4c46fcfe9e472e62a86d7d7823a3d2a2f
 ```
 
 The run is deterministic and takes about 4 s once the tracking is cached. The training can be
 re-run from `scripts/fetch_external_data.sh`, then `python -m possession.train_shape` and
-`python -m possession.train_learned --version v8 --profile v2`. Every design decision is logged in `docs/decisions.md`,
+`python -m possession.train_learned --version v9 --profile v3`. Every design decision is logged in `docs/decisions.md`,
 with its measured effect.
 
 ## 7. Tools
