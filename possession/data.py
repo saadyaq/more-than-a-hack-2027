@@ -18,9 +18,7 @@ import pandas as pd
 from games import DATA_DIR, GAME, GAMES, require, source_frames
 from starter.baseline import FIELD_SEP, GROUP_SEP, MISSING, team_of_each_track
 from starter.load_smart_tagging import load as load_tags
-
-# Params
-CACHE_VERSION = 1  # Invalidate stored coordinates when the tracking representation changes.
+from possession.params import CACHE_VERSION
 
 
 @dataclass

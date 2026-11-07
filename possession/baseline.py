@@ -1,9 +1,7 @@
 """Vectorised official baseline, preserving metric distances and deterministic ties."""
 
 import numpy as np
-
-# Params
-HOME, AWAY, NOBODY = 0, 1, -1  # No visible player/ball pair supplies no possession evidence.
+from possession.params import HOME, AWAY, NOBODY
 
 
 def nearest_team(tracking):

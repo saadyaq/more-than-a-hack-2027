@@ -32,3 +32,28 @@ def test_baseline50_byte_identical():
                     pytrace=False)
     if not matches:
         pytest.fail("Baseline SHA-256 comparison failed (contents suppressed)", pytrace=False)
+
+
+@pytest.mark.data
+def test_v1_valid_and_deterministic():
+    from evaluation import possession_metrics as pm
+    from games import source_frames
+    from possession.run import v1
+
+    results = Path(__file__).resolve().parents[1] / "evaluation" / "results"
+    try:
+        tracking = load_tracking()
+        hashes, valid = [], True
+        with tempfile.TemporaryDirectory(prefix="v1_regression_", dir=results) as folder:
+            for repeat in range(2):
+                labels = v1(tracking)
+                path = write_submission(Path(folder) / (str(repeat) + ".csv"), labels)
+                hashes.append(digest(path))
+                valid = valid and pm.validate_submission(pm.read_label_csv(path), source_frames()) is None
+        matches = hashes[0] == hashes[1]
+    except Exception:
+        pytest.fail("V1 data regression could not complete; details suppressed to protect match data",
+                    pytrace=False)
+    if not valid or not matches:
+        pytest.fail("V1 validation or deterministic hash comparison failed (contents suppressed)",
+                    pytrace=False)
