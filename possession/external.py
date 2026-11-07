@@ -289,8 +289,21 @@ def possession_truth(events, n_frames, blocks, home):
     return labels
 
 
-def _burst_mask(valid, count, rng, mean_frames, ends, weights=None):
-    """Weighted starts without replacement guarantee termination and exact removal."""
+def gap_quantiles():
+    """Aggregate quantiles of the competition ATD's ball-gap lengths, in frames.
+
+    Measured once (possession/ball_gap_quantiles.json): the real tracker loses the ball in long
+    blackouts (median ~11 s), not in short occlusions, so the simulator must reproduce that.
+    """
+    path = Path(__file__).resolve().parent / 'ball_gap_quantiles.json'
+    return np.array(json.loads(path.read_text())['quantiles_0_to_100_step_5'], dtype=float)
+
+
+def _burst_mask(valid, count, rng, mean_frames, ends, weights=None, quantiles=None):
+    """Weighted starts without replacement guarantee termination and exact removal.
+
+    Burst lengths are geometric with mean_frames, or drawn by inverse CDF from quantiles.
+    """
     removed = np.zeros(len(valid), bool)
     candidates = np.flatnonzero(valid)
     if count <= 0 or not len(candidates):
@@ -303,7 +316,11 @@ def _burst_mask(valid, count, rng, mean_frames, ends, weights=None):
     for start in candidates[np.argsort(priorities, kind='stable')]:
         if removed[start]:
             continue
-        length = int(rng.geometric(1. / mean_frames))
+        if quantiles is None:
+            length = int(rng.geometric(1. / mean_frames))
+        else:
+            levels = np.linspace(0., 1., len(quantiles))
+            length = max(1, int(round(np.interp(rng.random(), levels, quantiles))))
         stop = min(int(ends[start]), int(start + length))
         frames = np.flatnonzero(valid[start:stop] & ~removed[start:stop]) + start
         frames = frames[:remaining]
@@ -332,7 +349,8 @@ def degrade(tracking, seed, ball_missing=BALL_MISSING, *, blocks=None,
             player_missing=PLAYER_MISSING, burst_mean_s=BURST_MEAN_S,
             jitter_m=JITTER_M, jitter_correlation_s=JITTER_CORRELATION_S,
             crowd_radius_m=CROWD_RADIUS_M,
-            crowd_players=CROWD_PLAYERS, crowd_weight=CROWD_WEIGHT, fps=FPS):
+            crowd_players=CROWD_PLAYERS, crowd_weight=CROWD_WEIGHT, fps=FPS,
+            ball_gap_quantiles='competition'):
     """Simulate occlusions without changing inputs; no parameters are fitted here.
 
     Ball absence reaches round(ball_missing * in-block frames), counting existing
@@ -363,7 +381,12 @@ def degrade(tracking, seed, ball_missing=BALL_MISSING, *, blocks=None,
     crowded = (distance <= crowd_radius_m).sum(axis=1) >= crowd_players
     weights = np.where(crowded, crowd_weight, 1.)
     count = round(ball_missing * inside.sum()) - np.count_nonzero(inside & ~observed)
-    missing = _burst_mask(inside & observed, count, rng, burst_mean_s * fps, ends, weights)
+    # Ball blackouts follow the competition tracker's measured gap lengths unless the caller asks
+    # for geometric bursts (None) or passes its own quantiles.
+    if isinstance(ball_gap_quantiles, str) and ball_gap_quantiles == 'competition':
+        ball_gap_quantiles = gap_quantiles()
+    missing = _burst_mask(inside & observed, count, rng, burst_mean_s * fps, ends, weights,
+                          quantiles=ball_gap_quantiles)
     ball[missing] = np.nan
     for slot in range(players.shape[1]):
         valid = inside & np.isfinite(players[:, slot]).all(axis=1)

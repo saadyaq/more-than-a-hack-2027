@@ -1,0 +1,26 @@
+{
+  "source": "competition ATD, ball gap lengths in frames inside graded halves (aggregate quantiles only)",
+  "quantiles_0_to_100_step_5": [
+    1,
+    2,
+    12,
+    134,
+    146,
+    152,
+    170,
+    187,
+    215,
+    239,
+    268,
+    289,
+    314,
+    404,
+    486,
+    526,
+    603,
+    727,
+    845,
+    1270,
+    5537
+  ]
+}

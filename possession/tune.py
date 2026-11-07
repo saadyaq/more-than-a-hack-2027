@@ -1,6 +1,6 @@
 """Tune the v3 evidence and decoder on external Metrica games only, never on the competition match.
 
-    .venv/bin/python -m possession.tune                 # writes possession/tuned_v4.json
+    .venv/bin/python -m possession.tune                 # writes possession/tuned_v5.json
 
 The organisers require every tuned parameter to be tuned on external data. The objective is the
 competition's own ranking metric, spellF1, averaged over the three Metrica sample games, each
@@ -33,19 +33,20 @@ GAMES = (1, 2, 3)  # Every public Metrica sample game with synchronised events.
 SEEDS = (0, 1, 2)  # Three degradations per game average out the simulator's randomness.
 MAX_PASSES = 4  # Coordinate descent stops earlier once a full pass changes nothing.
 MIN_GAIN = 1e-4  # Smaller improvements are ties; ties keep the current value.
-OUTPUT = Path(__file__).resolve().parent / "tuned_v4.json"
+OUTPUT = Path(__file__).resolve().parent / "tuned_v5.json"  # v4 used the old geometric degrader.
 
 EVIDENCE_GRID = {  # Ranges span what is physically plausible, centred on the v3 values.
-    "CONTROL_RADIUS_M": [0.75, 1.0, 1.5, 2.0, 2.5, 3.0],
-    "CONTROL_SPEED_MPS": [4.0, 7.0, 10.0, 14.0, 20.0],
-    "CONTEST_MARGIN_M": [0.0, 0.5, 1.0, 2.0],
+    # Values that ended on a grid edge in the v4 search were extended outwards.
+    "CONTROL_RADIUS_M": [0.75, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0],
+    "CONTROL_SPEED_MPS": [4.0, 7.0, 10.0, 14.0, 20.0, 30.0],
+    "CONTEST_MARGIN_M": [0.25, 0.5, 1.0, 2.0],  # 0 would divide by zero in the contest scaling.
     "INTERPOLATED_CONTROL_WEIGHT": [0.0, 0.5, 1.0],
-    "MAX_GAP_FRAMES": [0, 12, 25, 50, 100],
-    "W_OUT": [1.0, 3.0, 6.0],
-    "STILL_WINDOW_S": [1.0, 2.0, 3.0],
+    "MAX_GAP_FRAMES": [0, 12, 25, 50, 100, 250],
+    "W_OUT": [1.0, 3.0, 6.0, 12.0],
+    "STILL_WINDOW_S": [1.0, 2.0, 3.0, 5.0],
     "STILL_SPEED_MPS": [0.8, 1.2, 1.6, 2.0, 2.5],
-    "W_STILL": [0.5, 1.0, 2.0],
-    "W_STILL_NO_BALL": [0.0, 0.5, 1.0, 2.0],
+    "W_STILL": [0.25, 0.5, 1.0, 2.0],
+    "W_STILL_NO_BALL": [0.0, 0.5, 1.0, 2.0, 4.0],
 }
 TRANSITION_GRID = {  # W_CONTROL stays at 2.0 and anchors the scale of every penalty.
     "P_SWITCH": [5.0, 10.0, 15.0, 20.0, 30.0, 50.0, 75.0],
