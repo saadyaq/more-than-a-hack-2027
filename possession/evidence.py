@@ -4,6 +4,8 @@ Scores are additive log-evidence, not probabilities. Missing observations supply
 evidence; no ground truth is used. Interval endpoints follow the starter's half-open rule.
 """
 
+from types import SimpleNamespace
+
 import numpy as np
 
 from games import GAME, half_video_blocks
@@ -11,11 +13,30 @@ from possession import params as p
 from possession.ball import ball_speed_mps, interpolate_short_gaps, out_of_pitch
 
 
+# Parameters exposed for external-data searches; competition defaults stay untouched.
+EVIDENCE_PARAMS = frozenset({
+    'MAX_GAP_FRAMES', 'MAX_INTERPOLATION_SPEED_MPS', 'SPEED_MEDIAN_FRAMES', 'OUT_MARGIN_M',
+    'CONTROL_RADIUS_M', 'CONTROL_SPEED_MPS', 'CONTEST_MARGIN_M', 'W_CONTROL',
+    'INTERPOLATED_CONTROL_WEIGHT', 'W_TAG_ATTACK', 'W_TAG_DEFEND', 'TAG_CAP', 'W_OUT',
+    'STILL_WINDOW_S', 'STILL_SPEED_MPS', 'W_STILL', 'W_STILL_NO_BALL', 'RESTART_LEAD_S',
+    'W_RESTART_DEAD', 'RESTART_ALIVE_S', 'W_RESTART_ALIVE', 'W_PREKICKOFF',
+})
+
+
+def evidence_config(params=None):
+    """Copy overrides locally so grid searches cannot mutate competition defaults."""
+    params = {} if params is None else dict(params)
+    unknown = set(params) - EVIDENCE_PARAMS
+    if unknown:
+        raise ValueError('Unknown evidence parameters: {}'.format(sorted(unknown)))
+    return SimpleNamespace(**{name: params.get(name, getattr(p, name)) for name in EVIDENCE_PARAMS})
+
+
 def normalise(value):
     return str(value).strip().casefold()
 
 
-def phase_intervals(events, n_frames, offensive_only=False):
+def phase_intervals(events, n_frames, offensive_only=False, *, config=p):
     """Yield clipped team evidence intervals, ignoring unknown teams and unrelated codes."""
     for event in events.to_dict("records"):
         team = p.TEAM_NAMES.get(normalise(event.get("Team")))
@@ -23,9 +44,9 @@ def phase_intervals(events, n_frames, offensive_only=False):
         if team is None:
             continue
         if code in p.ATTACK_CODES:
-            weight = p.W_TAG_ATTACK
+            weight = config.W_TAG_ATTACK
         elif not offensive_only and code in p.DEFEND_CODES:
-            team, weight = 1 - team, p.W_TAG_DEFEND
+            team, weight = 1 - team, config.W_TAG_DEFEND
         else:
             continue
         start, stop = max(0, int(event["start_frame"])), min(n_frames, int(event["end_frame"]))
@@ -33,17 +54,17 @@ def phase_intervals(events, n_frames, offensive_only=False):
             yield team, start, stop, weight
 
 
-def tag_evidence(events, n_frames):
+def tag_evidence(events, n_frames, *, config=p):
     """Cap each team's overlapping phase prior; restart terms are separate evidence."""
     # Integer coverage counts leave exact zeros after intervals, without float-sum residue.
     changes = np.zeros((n_frames + 1, 2, 2), dtype=np.int64)
-    for team, start, stop, weight in phase_intervals(events, n_frames):
-        kind = 0 if weight == p.W_TAG_ATTACK else 1
+    for team, start, stop, weight in phase_intervals(events, n_frames, config=config):
+        kind = 0 if weight == config.W_TAG_ATTACK else 1
         changes[start, team, kind] += 1
         changes[stop, team, kind] -= 1
     evidence = np.zeros((n_frames, 3))
     evidence[:, :2] = np.minimum(
-        np.cumsum(changes[:-1], axis=0) @ np.array([p.W_TAG_ATTACK, p.W_TAG_DEFEND]), p.TAG_CAP)
+        np.cumsum(changes[:-1], axis=0) @ np.array([config.W_TAG_ATTACK, config.W_TAG_DEFEND]), config.TAG_CAP)
     return evidence
 
 
@@ -63,18 +84,18 @@ def nearest_team_distances(tracking, ball_xy):
     return distances
 
 
-def control_evidence(tracking, ball_xy, speed, interpolated):
+def control_evidence(tracking, ball_xy, speed, interpolated, *, config=p):
     """Exact contests give neither team evidence; uncontested control gets full weight."""
     distances = nearest_team_distances(tracking, ball_xy)
     closest = np.argmin(distances, axis=1)
     frames = np.arange(len(ball_xy))
     nearest = distances[frames, closest]
-    eligible = ((nearest <= p.CONTROL_RADIUS_M) & np.isfinite(speed)
-                & (speed <= p.CONTROL_SPEED_MPS))
+    eligible = ((nearest <= config.CONTROL_RADIUS_M) & np.isfinite(speed)
+                & (speed <= config.CONTROL_SPEED_MPS))
     frames = frames[eligible]
     advantage = distances[frames, 1 - closest[frames]] - nearest[frames]
-    strength = p.W_CONTROL * np.clip(advantage / p.CONTEST_MARGIN_M, 0, 1)
-    strength *= np.where(interpolated[frames], p.INTERPOLATED_CONTROL_WEIGHT, 1.)
+    strength = config.W_CONTROL * np.clip(advantage / config.CONTEST_MARGIN_M, 0, 1)
+    strength *= np.where(interpolated[frames], config.INTERPOLATED_CONTROL_WEIGHT, 1.)
     evidence = np.zeros((len(ball_xy), 3))
     evidence[frames, closest[frames]] = strength
     return evidence
@@ -87,40 +108,40 @@ def rolling_sum(values, radius):
     return cumulative[np.minimum(len(values), index + radius + 1)] - cumulative[np.maximum(0, index - radius)]
 
 
-def stillness_evidence(tracking, observed, *, fps=p.FPS):
+def stillness_evidence(tracking, observed, *, fps=p.FPS, config=p):
     """Average finite per-frame player medians; untracked frames cannot imply stillness."""
     speeds = np.where(np.isfinite(tracking.players).all(axis=2), tracking.players[..., 2], np.nan)
     available = np.isfinite(speeds).any(axis=1)
     medians = np.full(len(speeds), np.nan)
     medians[available] = np.nanmedian(speeds[available], axis=1)
-    radius = round(p.STILL_WINDOW_S * fps)
+    radius = round(config.STILL_WINDOW_S * fps)
     counts = rolling_sum(available, radius)
     means = np.divide(rolling_sum(np.nan_to_num(medians), radius), counts,
                       out=np.full(len(medians), np.nan), where=counts > 0)
-    still = means < p.STILL_SPEED_MPS
+    still = means < config.STILL_SPEED_MPS
     no_ball = rolling_sum(observed, radius) == 0
     evidence = np.zeros((len(observed), 3))
-    evidence[:, p.DEAD] = still * (p.W_STILL + no_ball * p.W_STILL_NO_BALL)
+    evidence[:, p.DEAD] = still * (config.W_STILL + no_ball * config.W_STILL_NO_BALL)
     return evidence
 
 
-def restart_evidence(events, n_frames, blocks, *, fps=p.FPS):
+def restart_evidence(events, n_frames, blocks, *, fps=p.FPS, config=p):
     """Set-piece starts mark restarts; only half-start tags extend D back to a half boundary."""
     evidence = np.zeros((n_frames, 3))
     half_bounds = {half: (start, end + 1) for half, start, end in blocks}
     kickoff_halves = set()
-    lead, alive = round(p.RESTART_LEAD_S * fps), round(p.RESTART_ALIVE_S * fps)
+    lead, alive = round(config.RESTART_LEAD_S * fps), round(config.RESTART_ALIVE_S * fps)
     for event in events.to_dict("records"):
         if normalise(event.get("code")) != p.SET_PIECES_CODE:
             continue
         start = int(event["start_frame"])
         before, stop = max(0, start - lead), min(n_frames, start)
         if before < stop:
-            evidence[before:stop, p.DEAD] += p.W_RESTART_DEAD
+            evidence[before:stop, p.DEAD] += config.W_RESTART_DEAD
         team = p.TEAM_NAMES.get(normalise(event.get("Team")))
         after, stop = max(0, start), min(n_frames, start + alive)
         if team is not None and after < stop:
-            evidence[after:stop, team] += p.W_RESTART_ALIVE
+            evidence[after:stop, team] += config.W_RESTART_ALIVE
         if normalise(event.get("Type")) != p.KICKOFF_START_TYPE:
             continue  # After-goal kickoffs get only the ordinary restart lead window.
         half = p.HALF_NAMES.get(normalise(event.get("Half")))
@@ -132,25 +153,29 @@ def restart_evidence(events, n_frames, blocks, *, fps=p.FPS):
         lower, upper = half_bounds[half]
         before, stop = max(0, lower), min(n_frames, upper, start)
         if before < stop:
-            evidence[before:stop, p.DEAD] += p.W_PREKICKOFF
+            evidence[before:stop, p.DEAD] += config.W_PREKICKOFF
     return evidence
 
 
-def build_evidence(tracking, events, blocks=None, *, fps=p.FPS):
+def build_evidence(tracking, events, blocks=None, *, fps=p.FPS, params=None):
     """Compute all fixed v1 terms, then discard evidence outside the graded halves."""
+    config = evidence_config(params)
     if blocks is None:
         blocks = half_video_blocks(GAME)
     ball_xy = tracking.ball_xy64
     if ball_xy is None:
         ball_xy = tracking.ball[:, :2].astype(np.float64)
     observed = np.isfinite(ball_xy).all(axis=1)
-    filled, interpolated = interpolate_short_gaps(ball_xy, pitch=tracking.pitch, fps=fps)
-    speed = ball_speed_mps(filled, tracking.pitch, fps=fps)
-    evidence = control_evidence(tracking, filled, speed, interpolated)
-    evidence += tag_evidence(events, len(ball_xy))
-    evidence[:, p.DEAD] += p.W_OUT * out_of_pitch(ball_xy, pitch=tracking.pitch)
-    evidence += stillness_evidence(tracking, observed, fps=fps)
-    evidence += restart_evidence(events, len(ball_xy), blocks, fps=fps)
+    filled, interpolated = interpolate_short_gaps(
+        ball_xy, config.MAX_GAP_FRAMES, pitch=tracking.pitch, fps=fps,
+        max_speed_mps=config.MAX_INTERPOLATION_SPEED_MPS)
+    speed = ball_speed_mps(filled, tracking.pitch, fps=fps,
+                           median_frames=config.SPEED_MEDIAN_FRAMES)
+    evidence = control_evidence(tracking, filled, speed, interpolated, config=config)
+    evidence += tag_evidence(events, len(ball_xy), config=config)
+    evidence[:, p.DEAD] += config.W_OUT * out_of_pitch(ball_xy, config.OUT_MARGIN_M, pitch=tracking.pitch)
+    evidence += stillness_evidence(tracking, observed, fps=fps, config=config)
+    evidence += restart_evidence(events, len(ball_xy), blocks, fps=fps, config=config)
     graded = np.zeros(len(ball_xy), dtype=bool)
     for _, start, end in blocks:
         graded[max(0, start):max(0, min(len(graded), end + 1))] = True

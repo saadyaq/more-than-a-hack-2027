@@ -5,7 +5,8 @@ import numpy as np
 from possession import params as p
 
 
-def interpolate_short_gaps(ball_xy, max_gap=p.MAX_GAP_FRAMES, *, pitch=p.PITCH, fps=p.FPS):
+def interpolate_short_gaps(ball_xy, max_gap=p.MAX_GAP_FRAMES, *, pitch=p.PITCH, fps=p.FPS,
+                           max_speed_mps=p.MAX_INTERPOLATION_SPEED_MPS):
     """Fill bounded gaps only when endpoint motion is physically plausible in metres."""
     filled = np.array(ball_xy, dtype=np.float64, copy=True)
     observed = np.isfinite(filled).all(axis=1)
@@ -17,7 +18,7 @@ def interpolate_short_gaps(ball_xy, max_gap=p.MAX_GAP_FRAMES, *, pitch=p.PITCH, 
     left, right = present[:-1], present[1:]
     gaps = right - left - 1
     speed = np.linalg.norm((filled[right] - filled[left]) * pitch, axis=1) * fps / (gaps + 1)
-    eligible = (gaps > 0) & (gaps <= max_gap) & (speed <= p.MAX_INTERPOLATION_SPEED_MPS)
+    eligible = (gaps > 0) & (gaps <= max_gap) & (speed <= max_speed_mps)
     # Each missing frame finds its bracketing observations; no frame-by-frame Python loop.
     index = np.arange(len(filled))
     interval = np.searchsorted(present, index, side="right") - 1
@@ -32,7 +33,7 @@ def interpolate_short_gaps(ball_xy, max_gap=p.MAX_GAP_FRAMES, *, pitch=p.PITCH, 
     return filled, interpolated
 
 
-def ball_speed_mps(ball_xy, pitch, *, fps=p.FPS):
+def ball_speed_mps(ball_xy, pitch, *, fps=p.FPS, median_frames=p.SPEED_MEDIAN_FRAMES):
     """Centred differences need the centre and both neighbours; filtering preserves gaps."""
     xy = np.asarray(ball_xy, dtype=np.float64)
     speed = np.full(len(xy), np.nan)
@@ -43,9 +44,11 @@ def ball_speed_mps(ball_xy, pitch, *, fps=p.FPS):
         speed[1:-1] = np.where(available, centred, np.nan)
     if not len(speed):
         return speed
-    radius = p.SPEED_MEDIAN_FRAMES // 2
+    if median_frames < 1 or median_frames % 2 != 1:
+        raise ValueError("median_frames must be a positive odd integer")
+    radius = median_frames // 2
     windows = np.lib.stride_tricks.sliding_window_view(
-        np.pad(speed, (radius, radius), constant_values=np.nan), p.SPEED_MEDIAN_FRAMES)
+        np.pad(speed, (radius, radius), constant_values=np.nan), median_frames)
     filtered = np.full(len(speed), np.nan)
     valid = np.isfinite(speed)
     # Select valid centres first: no all-NaN median warnings and no synthetic availability.
