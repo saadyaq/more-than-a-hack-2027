@@ -11,8 +11,8 @@ from possession.data import load_smart_tagging, load_tracking
 from possession.decode import decode
 from possession.evidence import build_evidence
 from possession.io import write_submission
-from possession.params import (DEFAULT_WINDOW, HISTORICAL_METHODS, METHOD_TRANSITION_PENALTIES,
-                               check_no_cheap_fake_stoppage)
+from possession.params import (DEFAULT_WINDOW, HISTORICAL_METHODS, METHOD_EVIDENCE_PARAMS,
+                               METHOD_TRANSITION_PENALTIES, check_no_cheap_fake_stoppage)
 
 # Params
 RESULTS_DIR = Path(__file__).resolve().parents[1] / "evaluation" / "results"
@@ -22,10 +22,10 @@ def baseline(tracking, window):
     return majority_smooth(nearest_team(tracking), window)
 
 
-def _evidence_decode(tracking, penalties=None):
-    """All versions share unchanged evidence and differ only in transition penalties."""
+def _evidence_decode(tracking, penalties=None, evidence_params=None):
+    """All versions share the evidence model and differ only in their parameter values."""
     start = perf_counter()
-    evidence = build_evidence(tracking, load_smart_tagging())
+    evidence = build_evidence(tracking, load_smart_tagging(), params=evidence_params)
     print("evidence: {:.3f} s".format(perf_counter() - start))
     start = perf_counter()
     labels = decode(evidence, penalties=penalties)
@@ -48,7 +48,13 @@ def v3(tracking, window=None):
     return _evidence_decode(tracking, penalties=METHOD_TRANSITION_PENALTIES["v3"])
 
 
-METHODS = {"baseline": baseline, "v1": v1, "v2": v2, "v3": v3}
+def v4(tracking, window=None):
+    """v3's model with evidence and penalties tuned on external games (tuned_v4.json)."""
+    return _evidence_decode(tracking, penalties=METHOD_TRANSITION_PENALTIES["v4"],
+                            evidence_params=METHOD_EVIDENCE_PARAMS["v4"])
+
+
+METHODS = {"baseline": baseline, "v1": v1, "v2": v2, "v3": v3, "v4": v4}
 
 
 def validate_method_penalties(methods):

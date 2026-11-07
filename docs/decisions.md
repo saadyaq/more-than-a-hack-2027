@@ -57,3 +57,25 @@
   `sample-data` (3 games with synchronised tracking and events; Game 3 in the same EPTS format as
   the ATD). Its README has no formal licence ("be responsible", "acknowledge the source"), so its
   use must be confirmed with the organisers first.
+
+## 2026-11-07 — External harness, degrader fix, v4 tuned on external data
+
+- **Harness (Task 5):** Metrica public sample games 1-3 (github.com/metrica-sports/sample-data,
+  credit Metrica Sports; README invites community use, asks for acknowledgement, no formal
+  licence). Possession truth derived from their events; tracking degraded to resemble the ATD
+  (41 % ball absence in crowd-weighted bursts, 7 % player loss, 0.15 m jitter). No Smart Tagging.
+- **Degrader bug fixed:** per-frame white jitter added ~2.6 m/s fake speed and hid every stoppage;
+  jitter is now AR(1) over ~1 s, like a filtered tracker.
+- **External finding:** v2/v3's "1 s of control" was too strict — v3 predicted 130 possessions
+  vs 282 true on degraded external games (spellF1 0.33); v1 scored 0.44.
+- **v4 = v3 model, parameters tuned by coordinate descent on the external games only**
+  (`possession/tune.py` -> `possession/tuned_v4.json`), objective = mean spellF1 over 3 games x
+  3 degradation seeds, fake-stoppage constraint enforced. Not tuned (no tags externally): Smart
+  Tagging and restart weights.
+- **Result (external, degraded):** spellF1 0.331 -> 0.517, macroF1 0.685 -> 0.767, possessions
+  249 vs 282 true. Leave-one-game-out, held-out game 1: 0.383 -> 0.495 (other folds running).
+- **Competition match (diagnostics only, no ground truth):** 294 possessions, mean 12.5 s,
+  D 40-45 %. Agreement with Smart Tagging attacking team fell to 55-59 % (v3: 62-68 %) — watch.
+- **Edge-of-grid values** (CONTROL_SPEED_MPS 20, MAX_GAP_FRAMES 100, W_OUT 6,
+  W_STILL_NO_BALL 2): the optimum may lie beyond the grid; MAX_GAP's optimum depends on the
+  simulator's gap model.

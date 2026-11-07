@@ -1,0 +1,33 @@
+{
+  "evidence": {
+    "CONTEST_MARGIN_M": 0.5,
+    "CONTROL_RADIUS_M": 2.5,
+    "CONTROL_SPEED_MPS": 20.0,
+    "INTERPOLATED_CONTROL_WEIGHT": 1.0,
+    "MAX_GAP_FRAMES": 100,
+    "STILL_SPEED_MPS": 1.6,
+    "STILL_WINDOW_S": 2.0,
+    "W_OUT": 6.0,
+    "W_STILL": 0.5,
+    "W_STILL_NO_BALL": 2.0
+  },
+  "objective": {
+    "games": [
+      1,
+      2,
+      3
+    ],
+    "metric": "spell_f1_mean",
+    "seeds": [
+      0,
+      1,
+      2
+    ],
+    "value": 0.5173505332406106
+  },
+  "penalties": {
+    "P_FROM_DEAD": 5.0,
+    "P_SWITCH": 30.0,
+    "P_TO_DEAD": 25.0
+  }
+}

@@ -1,4 +1,10 @@
-"""Fixed baseline/v1/v2/v3 parameters, chosen by the architect without public-GT tuning."""
+"""Fixed baseline/v1/v2/v3 parameters, chosen by the architect without public-GT tuning.
+
+v4 reads its values from tuned_v4.json, produced by possession/tune.py on external games only.
+"""
+
+import json
+from pathlib import Path
 
 from games import GAME, GAMES
 
@@ -58,6 +64,10 @@ METHOD_TRANSITION_PENALTIES = {  # Every decoder method declares the penalties i
     "v2": V2_TRANSITION_PENALTIES,
     "v3": {"P_SWITCH": P_SWITCH, "P_TO_DEAD": P_TO_DEAD, "P_FROM_DEAD": P_FROM_DEAD},
 }
+# Tuned on the Metrica public sample games (external data), as the organisers require.
+TUNED_V4 = json.loads((Path(__file__).resolve().parent / "tuned_v4.json").read_text())
+METHOD_TRANSITION_PENALTIES["v4"] = TUNED_V4["penalties"]
+METHOD_EVIDENCE_PARAMS = {"v4": TUNED_V4["evidence"]}  # Methods not listed use the defaults.
 HISTORICAL_METHODS = frozenset({"v1", "v2"})  # Keep accepted paths exempt from the new constraint.
 SHORT_DEAD_RUN_S = 1.0  # Sub-second stoppages can reveal artificial dead-ball bridges.
 
