@@ -158,7 +158,11 @@ def restart_evidence(events, n_frames, blocks, *, fps=p.FPS, config=p):
 
 
 def build_evidence(tracking, events, blocks=None, *, fps=p.FPS, params=None):
-    """Compute all fixed v1 terms, then discard evidence outside the graded halves."""
+    """Build evidence with local overrides; empty tags and explicit blocks are valid.
+
+    Omitted blocks retain the competition timeline. No overrides preserves the
+    accepted v1/v2/v3 evidence exactly; frames outside the selected blocks are zero.
+    """
     config = evidence_config(params)
     if blocks is None:
         blocks = half_video_blocks(GAME)

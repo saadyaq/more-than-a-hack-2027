@@ -28,6 +28,9 @@ BALL_MISSING = 0.41  # Public DATA.md reports 41 percent ball absence during pla
 PLAYER_MISSING = 0.07  # Requested observation loss, excluding inactive substitute slots.
 BURST_MEAN_S = 1.5  # Occlusion persists across neighbouring football observations.
 JITTER_M = 0.15  # Requested positional uncertainty in metres on each axis.
+# Tracker errors are filtered, so they drift over about a second instead of changing every frame.
+# White noise of 0.15 m at 25 Hz would add ~2.6 m/s of fake speed and hide every stoppage.
+JITTER_CORRELATION_S = 1.0
 CROWD_RADIUS_M = 3.0  # Nearby bodies can hide the ball from tracking cameras.
 CROWD_PLAYERS = 3  # Three nearby players define the requested crowded situation.
 CROWD_WEIGHT = 4.0  # Untuned assumption: crowded frames get fourfold burst-start weight.
@@ -311,9 +314,24 @@ def _burst_mask(valid, count, rng, mean_frames, ends, weights=None):
     return removed
 
 
+def _correlated_noise(shape, sigma, correlation_frames, rng):
+    """Stationary AR(1) noise with standard deviation sigma along axis 0."""
+    noise = np.empty(shape)
+    if not shape[0]:
+        return noise
+    decay = np.exp(-1. / correlation_frames) if correlation_frames > 0 else 0.
+    innovation = sigma * np.sqrt(1. - decay * decay)
+    draws = rng.normal(0., 1., shape)
+    noise[0] = sigma * draws[0]
+    for frame in range(1, shape[0]):
+        noise[frame] = decay * noise[frame - 1] + innovation * draws[frame]
+    return noise
+
+
 def degrade(tracking, seed, ball_missing=BALL_MISSING, *, blocks=None,
             player_missing=PLAYER_MISSING, burst_mean_s=BURST_MEAN_S,
-            jitter_m=JITTER_M, crowd_radius_m=CROWD_RADIUS_M,
+            jitter_m=JITTER_M, jitter_correlation_s=JITTER_CORRELATION_S,
+            crowd_radius_m=CROWD_RADIUS_M,
             crowd_players=CROWD_PLAYERS, crowd_weight=CROWD_WEIGHT, fps=FPS):
     """Simulate occlusions without changing inputs; no parameters are fitted here.
 
@@ -323,7 +341,8 @@ def degrade(tracking, seed, ball_missing=BALL_MISSING, *, blocks=None,
     Both use geometric bursts with mean 1.5 s, clipped at period boundaries and
     at the final quota. Crowded starts get fourfold weight, an explicit untuned
     assumption. Player burst length shares the ball default because none was
-    specified. Independent 0.15 m Gaussian noise is added on both position axes.
+    specified. 0.15 m Gaussian noise, correlated over about a second, is added on both
+    position axes.
     Speeds are recomputed; xy64 is cleared so methods cannot see pristine data.
     Omitted blocks mean the whole input; external_eval always supplies periods.
     """
@@ -351,8 +370,11 @@ def degrade(tracking, seed, ball_missing=BALL_MISSING, *, blocks=None,
         missing = _burst_mask(valid, round(player_missing * valid.sum()), rng,
                               burst_mean_s * fps, ends)
         players[missing, slot] = np.nan
-    players[inside] += rng.normal(0., jitter_m, players[inside].shape) / tracking.pitch
-    ball[inside] += rng.normal(0., jitter_m, ball[inside].shape) / tracking.pitch
+    correlation_frames = jitter_correlation_s * fps
+    players[inside] += _correlated_noise(players[inside].shape, jitter_m, correlation_frames,
+                                         rng) / tracking.pitch
+    ball[inside] += _correlated_noise(ball[inside].shape, jitter_m, correlation_frames,
+                                      rng) / tracking.pitch
     return Tracking(with_speeds(players, tracking.pitch, blocks, fps),
                     with_speeds(ball, tracking.pitch, blocks, fps),
                     tracking.team_of_slot.copy(), tracking.pitch)
