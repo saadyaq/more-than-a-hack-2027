@@ -23,8 +23,6 @@ This writes `evaluation/results/saad_yaqine.csv`, runs the official `validate_su
 and prints the file's SHA-1. The submitted file has
 
 ```
-wrote
-OK
 cbffc044b141415d91e3781e377fb199cd612c64  evaluation/results/saad_yaqine.csv
 ```
 

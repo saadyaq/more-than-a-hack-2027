@@ -155,6 +155,4 @@
   macroF1 0.777 (v9 0.520 / 0.772); per game 0.529 / 0.539 / 0.519. Small gain, inside the noise
   band, consistent on all three games; more training variety, so adopted.
 - Competition (diagnostics only): 276 possessions, D 33-43 %, Smart Tagging agreement 52-58 %.
-  SHA-1 wrote
-OK
-cbffc044b141415d91e3781e377fb199cd612c64.
+  SHA-1 cbffc044b141415d91e3781e377fb199cd612c64.

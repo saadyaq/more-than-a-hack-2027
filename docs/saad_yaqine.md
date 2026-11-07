@@ -202,9 +202,7 @@ T = 0.2 · P_SWITCH = 2 · P_TO_DEAD = 16 · P_FROM_DEAD = 1 · prior (H, A, D) 
 python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 export MTAH_DATA_DIR=/path/to/unpacked/bundle
 scripts/reproduce.sh saad_yaqine
-# -> evaluation/results/saad_yaqine.csv, SHA-1 wrote
-OK
-cbffc044b141415d91e3781e377fb199cd612c64
+# -> evaluation/results/saad_yaqine.csv, SHA-1 cbffc044b141415d91e3781e377fb199cd612c64
 ```
 
 The run is deterministic and takes about 4 s once the tracking is cached. The training can be
