@@ -27,13 +27,25 @@ are one. Breaking this can disqualify the team.
   and `games.py`, not by inspecting files.
 - `evaluation/gt/*_public.csv` is public and may be read.
 
-## HARD RULE 2 — competition rules (RULES.md)
+## HARD RULE 2 — competition rules (organisers' clarification email, Nov 2026 — overrides RULES.md)
 
-- No hand labels or hand-tuned constants tied to specific frames of this match.
-- The public 5-minute ground truth is for checking the pipeline is correct (alignment, format).
-  **Never** use it to choose parameters, train, or pick between variants.
-- No event data / corrected tracking / human annotations about this match.
-- The pipeline must be deterministic: same data in, byte-identical CSV out.
+Not allowed:
+- Checking our output against the video (no overlays, no visual QA of our labels).
+- Hand labels, human-produced data or anything created manually on the provided game.
+- Uploading the provided data to AI services.
+- Training, fitting or calibrating on the ground-truth possession data or on the provided video.
+- **Any parameter that needs tuning MUST be tuned on external data** (other games we have the rights
+  to use), never on the provided game. Do not iterate thresholds against diagnostics of the
+  provided game either; diagnostics there are for detecting bugs only.
+
+Allowed:
+- Automatic checks using only the provided data (format, determinism, sanity diagnostics).
+- Video, tracking, Smart Tagging and other generated data as *inputs*.
+- Shipping files of intermediate steps.
+- Any external dataset whose licence permits it — check and record the licence before use.
+
+Also: the pipeline must be deterministic (same data in, byte-identical CSV out), and the public
+5-minute ground truth is never used to choose parameters or pick between variants.
 
 ## Running things
 

@@ -21,6 +21,7 @@
 
 ## Data rule
 
-Same as AGENTS.md hard rule 1: the match data is in `~/mtah_data` and must never be read or
-printed into the conversation. Only aggregate outputs. Tuning on the public 5 minutes is
-forbidden; choose parameters from football reasoning and self-consistency.
+Same as AGENTS.md hard rules 1 and 2: the match data is in `~/mtah_data` and must never be read
+or printed into the conversation; only aggregate outputs. Per the organisers' clarification email
+(Nov 2026), every tuned parameter is tuned on **external data** only — never on the provided game,
+its video or any ground truth — and our output is never checked against the video.

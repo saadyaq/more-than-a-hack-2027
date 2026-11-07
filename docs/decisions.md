@@ -43,3 +43,17 @@
   17 possessions cannot separate methods (see EVALUATION.md).
 - **Open question for v4:** direct switches look low for a full match — the 1 s control rule may
   now be too strict where the ball is invisible (41 % of frames), since missing ball = no evidence.
+
+## 2026-11-07 — Organisers' rules clarification (overrides the repo docs)
+
+- **New constraint:** every tuned parameter must be tuned on external data; never on the provided
+  game, its video or any ground truth. Output is never checked against the video.
+- **Audit of v1-v3:** no parameter was fitted. Values come from football reasoning; v2 and v3 are
+  a rescaling derived from CHALLENGE.md's definition of control and a structural consistency
+  constraint. Full-match diagnostics were used to detect two bugs (touch-level turnovers, phantom
+  stoppages). Public-window scores were reported as bug checks and never drove a choice. The video
+  was never used.
+- **From now on:** parameter choices go through an external-data harness. Candidate: Metrica
+  `sample-data` (3 games with synchronised tracking and events; Game 3 in the same EPTS format as
+  the ATD). Its README has no formal licence ("be responsible", "acknowledge the source"), so its
+  use must be confirmed with the organisers first.
