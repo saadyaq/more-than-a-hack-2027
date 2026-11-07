@@ -96,6 +96,22 @@ def test_fake_stoppage_constraint():
         {"P_SWITCH": p.P_SWITCH, "P_TO_DEAD": p.P_TO_DEAD, "P_FROM_DEAD": p.P_FROM_DEAD})
 
 
+def test_registered_methods_enforce_constraint_and_only_historical_exemptions(monkeypatch):
+    from possession.run import METHODS, validate_method_penalties
+
+    validate_method_penalties(METHODS)
+    # A new name cannot inherit v2's exemption even with identical parameters.
+    monkeypatch.setitem(p.METHOD_TRANSITION_PENALTIES, "new_method", p.V2_TRANSITION_PENALTIES)
+    with pytest.raises(ValueError):
+        validate_method_penalties({**METHODS, "new_method": None})
+    with pytest.raises(AssertionError):
+        validate_method_penalties({**METHODS, "undeclared_method": None})
+    # The actual registered v3 configuration must also be checked, not just the defaults.
+    monkeypatch.setitem(p.METHOD_TRANSITION_PENALTIES, "v3", p.V2_TRANSITION_PENALTIES)
+    with pytest.raises(ValueError):
+        validate_method_penalties(METHODS)
+
+
 def test_v3_turnover_without_dead_evidence_is_direct():
     context = 3 * p.FPS
     evidence = np.zeros((2 * context, 3))

@@ -1,4 +1,4 @@
-"""Fixed baseline/v1/v2 parameters, chosen by the architect without public-GT tuning."""
+"""Fixed baseline/v1/v2/v3 parameters, chosen by the architect without public-GT tuning."""
 
 from games import GAME, GAMES
 
@@ -53,6 +53,13 @@ V2_TRANSITION_PENALTIES = {  # Preserve v2, which violates the fake-stoppage con
     "P_TO_DEAD": P_TO_DEAD,  # Same evidence-scaled stoppage resistance as the defaults.
     "P_FROM_DEAD": 4.0,  # Original v2 restart resistance.
 }
+METHOD_TRANSITION_PENALTIES = {  # Every decoder method declares the penalties it actually uses.
+    "v1": V1_TRANSITION_PENALTIES,
+    "v2": V2_TRANSITION_PENALTIES,
+    "v3": {"P_SWITCH": P_SWITCH, "P_TO_DEAD": P_TO_DEAD, "P_FROM_DEAD": P_FROM_DEAD},
+}
+HISTORICAL_METHODS = frozenset({"v1", "v2"})  # Keep accepted paths exempt from the new constraint.
+SHORT_DEAD_RUN_S = 1.0  # Sub-second stoppages can reveal artificial dead-ball bridges.
 
 
 def check_no_cheap_fake_stoppage(penalties):

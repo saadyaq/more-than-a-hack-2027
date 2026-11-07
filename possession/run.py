@@ -11,7 +11,8 @@ from possession.data import load_smart_tagging, load_tracking
 from possession.decode import decode
 from possession.evidence import build_evidence
 from possession.io import write_submission
-from possession.params import DEFAULT_WINDOW, V1_TRANSITION_PENALTIES, V2_TRANSITION_PENALTIES
+from possession.params import (DEFAULT_WINDOW, HISTORICAL_METHODS, METHOD_TRANSITION_PENALTIES,
+                               check_no_cheap_fake_stoppage)
 
 # Params
 RESULTS_DIR = Path(__file__).resolve().parents[1] / "evaluation" / "results"
@@ -22,7 +23,7 @@ def baseline(tracking, window):
 
 
 def _evidence_decode(tracking, penalties=None):
-    """Both versions share unchanged evidence and differ only in transition penalties."""
+    """All versions share unchanged evidence and differ only in transition penalties."""
     start = perf_counter()
     evidence = build_evidence(tracking, load_smart_tagging())
     print("evidence: {:.3f} s".format(perf_counter() - start))
@@ -34,20 +35,33 @@ def _evidence_decode(tracking, penalties=None):
 
 def v1(tracking, window=None):
     """Preserve the accepted v1 penalties; the baseline smoothing window is unused."""
-    return _evidence_decode(tracking, penalties=V1_TRANSITION_PENALTIES)
+    return _evidence_decode(tracking, penalties=METHOD_TRANSITION_PENALTIES["v1"])
 
 
 def v2(tracking, window=None):
     """Preserve the accepted v2 penalties; the baseline smoothing window is unused."""
-    return _evidence_decode(tracking, penalties=V2_TRANSITION_PENALTIES)
+    return _evidence_decode(tracking, penalties=METHOD_TRANSITION_PENALTIES["v2"])
 
 
 def v3(tracking, window=None):
     """Default penalties: v2 plus no fake stoppage cheaper than a turnover."""
-    return _evidence_decode(tracking)
+    return _evidence_decode(tracking, penalties=METHOD_TRANSITION_PENALTIES["v3"])
 
 
 METHODS = {"baseline": baseline, "v1": v1, "v2": v2, "v3": v3}
+
+
+def validate_method_penalties(methods):
+    """Require declared, consistent penalties for every nonhistorical decoder method."""
+    for name in methods:
+        if name == "baseline":
+            continue  # The nearest-team baseline has no transition model.
+        assert name in METHOD_TRANSITION_PENALTIES, "registered method lacks transition penalties"
+        if name not in HISTORICAL_METHODS:
+            check_no_cheap_fake_stoppage(METHOD_TRANSITION_PENALTIES[name])
+
+
+validate_method_penalties(METHODS)
 
 
 def possession_count(labels):

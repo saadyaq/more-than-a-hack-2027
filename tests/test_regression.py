@@ -52,9 +52,9 @@ def test_evidence_methods_valid_and_deterministic(method):
                 hashes.append(digest(path))
                 valid = valid and pm.validate_submission(pm.read_label_csv(path), source_frames()) is None
         matches = hashes[0] == hashes[1]
-        if method == "v1":
-            # Compare against the accepted file; never regenerate it during this test.
-            matches = matches and hashes[0] == digest(results / "v1.csv")
+        if method in ("v1", "v2"):
+            # Compare against accepted files; never regenerate them during this test.
+            matches = matches and hashes[0] == digest(results / (method + ".csv"))
     except Exception:
         pytest.fail("Evidence-method regression could not complete; details suppressed to protect match data",
                     pytrace=False)

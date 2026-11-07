@@ -38,6 +38,8 @@ def summarise(labels, events, blocks=None, *, fps=p.FPS):
         boundaries = np.r_[0, np.flatnonzero(part[1:] != part[:-1]) + 1, len(part)]
         alive_runs = np.isin(part[boundaries[:-1]], ["H", "A"])
         durations = np.diff(boundaries)[alive_runs] / fps
+        dead_runs = part[boundaries[:-1]] == "D"
+        short_dead = dead_runs & (np.diff(boundaries) < p.SHORT_DEAD_RUN_S * fps)
         home, away = np.count_nonzero(part == "H"), np.count_nonzero(part == "A")
         direct = (((part[:-1] == "H") & (part[1:] == "A"))
                   | ((part[:-1] == "A") & (part[1:] == "H")))
@@ -49,6 +51,7 @@ def summarise(labels, events, blocks=None, *, fps=p.FPS):
             mean_s=float(durations.mean()) if len(durations) else 0.,
             median_s=float(np.median(durations)) if len(durations) else 0.,
             dead_share=float(np.mean(part == "D")),
+            short_dead_runs=int(np.count_nonzero(short_dead)),
             home_share=float(home / (home + away)) if home + away else float("nan"),
             direct_switches=int(np.count_nonzero(direct)), tagged_frames=tagged,
             tag_agreement=float(agree / tagged) if tagged else float("nan")))
@@ -72,8 +75,9 @@ def main(argv=None):
     for report in reports:
         print("half {half}: possessions {possessions}; mean {mean_s:.2f} s; median {median_s:.2f} s; "
               "D {dead_share:.2%}; home {home_share:.2%}; direct H/A switches {direct_switches}; "
+              "D runs < {short_dead_run_s:g} s: {short_dead_runs}; "
               "attack-tag agreement {tag_agreement:.2%} ({tagged_frames} tagged team/frames)"
-              .format(**report))
+              .format(short_dead_run_s=p.SHORT_DEAD_RUN_S, **report))
 
 
 if __name__ == "__main__":
