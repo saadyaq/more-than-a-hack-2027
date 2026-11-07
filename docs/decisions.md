@@ -97,3 +97,6 @@
 - **Competition match (diagnostics only):** 283 possessions, mean 11.6-14.7 s, D 39-45 %.
 - **Still on grid edges:** CONTROL_SPEED_MPS 30, W_OUT 12, SHAPE_BALL_FACTOR 1.0,
   STILL_WINDOW_S 1, W_STILL 0.25, CONTEST_MARGIN_M 0.25.
+- **Leave-one-game-out, real-gap degrader, no shape (tuned_v5.json, kept for the record):**
+  held-out game 1 0.378 -> 0.501, game 2 0.319 -> 0.540, game 3 0.291 -> 0.440. Tuning
+  generalises to unseen games by +0.12 to +0.22, far above the ~0.04 noise band.
