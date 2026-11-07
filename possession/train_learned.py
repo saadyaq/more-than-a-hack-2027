@@ -43,8 +43,14 @@ def log(line):
     print(line, flush=True)
 
 
-def main():
-    cases = load_cases(GAMES, SEEDS)
+def main(argv=None):
+    import argparse
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--version", default="v7", help="output version name (v7 = original files)")
+    parser.add_argument("--profile", default="v1", choices=["v1", "v2"],
+                        help="degrader profile: v2 also matches player loss and speeds")
+    args = parser.parse_args(argv)
+    cases = load_cases(GAMES, SEEDS, profile=args.profile)
     rows = {}
     for index, (game, _, tracking, blocks, truth) in enumerate(cases):
         rows[index] = training_rows(tracking, blocks, truth)
@@ -102,7 +108,8 @@ def main():
                  "temperature": point["TEMPERATURE"], "penalties": penalties_of(point),
                  "out_of_fold_spell_f1": mean["spell_f1_mean"],
                  "out_of_fold_macro_f1": mean["macro_f1"],
-                 "trained_on": "Metrica public sample games 1-3, degraded seeds 0-2 (external only)"})
+                 "trained_on": "Metrica public sample games 1-3, degraded seeds 0-2 (external only)",
+                 "degrader_profile": args.profile}, version=args.version)
     log("saved model and config")
 
 

@@ -85,14 +85,15 @@ def penalties_of(point):
     return penalties
 
 
-def load_cases(games, seeds):
+def load_cases(games, seeds, profile="v1"):
     """[(game, seed, tracking, blocks, truth)] degraded once, reused by every evaluation."""
     cases = []
     for game in games:
         tracking, blocks, home = load_metrica_game(game)
         truth = possession_truth(load_metrica_events(game), len(tracking.ball), blocks, home)
         for seed in seeds:
-            cases.append((game, seed, degrade(tracking, seed, blocks=blocks), blocks, truth))
+            cases.append((game, seed, degrade(tracking, seed, blocks=blocks, profile=profile),
+                          blocks, truth))
     return cases
 
 

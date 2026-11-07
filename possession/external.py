@@ -350,7 +350,7 @@ def degrade(tracking, seed, ball_missing=BALL_MISSING, *, blocks=None,
             jitter_m=JITTER_M, jitter_correlation_s=JITTER_CORRELATION_S,
             crowd_radius_m=CROWD_RADIUS_M,
             crowd_players=CROWD_PLAYERS, crowd_weight=CROWD_WEIGHT, fps=FPS,
-            ball_gap_quantiles='competition'):
+            ball_gap_quantiles='competition', profile='v1'):
     """Simulate occlusions without changing inputs; no parameters are fitted here.
 
     Ball absence reaches round(ball_missing * in-block frames), counting existing
@@ -388,16 +388,77 @@ def degrade(tracking, seed, ball_missing=BALL_MISSING, *, blocks=None,
     missing = _burst_mask(inside & observed, count, rng, burst_mean_s * fps, ends, weights,
                           quantiles=ball_gap_quantiles)
     ball[missing] = np.nan
-    for slot in range(players.shape[1]):
-        valid = inside & np.isfinite(players[:, slot]).all(axis=1)
-        missing = _burst_mask(valid, round(player_missing * valid.sum()), rng,
-                              burst_mean_s * fps, ends)
-        players[missing, slot] = np.nan
+    if profile == 'v2':
+        clean_speeds = with_speeds(players, tracking.pitch, blocks, fps)[..., 2]
+        _drop_far_players(players, inside, rng, fps)
+    else:
+        for slot in range(players.shape[1]):
+            valid = inside & np.isfinite(players[:, slot]).all(axis=1)
+            missing = _burst_mask(valid, round(player_missing * valid.sum()), rng,
+                                  burst_mean_s * fps, ends)
+            players[missing, slot] = np.nan
     correlation_frames = jitter_correlation_s * fps
     players[inside] += _correlated_noise(players[inside].shape, jitter_m, correlation_frames,
                                          rng) / tracking.pitch
     ball[inside] += _correlated_noise(ball[inside].shape, jitter_m, correlation_frames,
                                       rng) / tracking.pitch
-    return Tracking(with_speeds(players, tracking.pitch, blocks, fps),
-                    with_speeds(ball, tracking.pitch, blocks, fps),
+    player_tracks = with_speeds(players, tracking.pitch, blocks, fps)
+    if profile == 'v2':
+        # A tracker reports speed from its smoothed track, not from noisy positions: keep the
+        # clean speed, then blank it in bursts as often as the competition ATD does.
+        positioned = np.isfinite(player_tracks[..., 0])
+        player_tracks[..., 2] = np.where(positioned, clean_speeds, np.nan)
+        _blank_speeds(player_tracks, positioned & inside[:, None], rng, fps)
+    return Tracking(player_tracks, with_speeds(ball, tracking.pitch, blocks, fps),
                     tracking.team_of_slot.copy(), tracking.pitch)
+
+
+def player_missing_profile():
+    """Aggregate competition shares: players missing per frame, and speed missing given position."""
+    path = Path(__file__).resolve().parent / 'player_missing_shares.json'
+    return json.loads(path.read_text())
+
+
+def _drop_far_players(players, inside, rng, fps):
+    """Remove, in runs of about a second, as many players as the competition tracker misses.
+
+    The tactical camera follows the play, so the players it loses are those far from it: in each
+    run, the k players farthest from the centroid of everyone are removed, k drawn from the
+    competition's per-frame missing-count shares (minus those already missing).
+    """
+    profile = player_missing_profile()
+    shares = np.array(profile['missing_count_share'])
+    mean_run = max(1., profile['median_run_frames'])
+    n = len(players)
+    frame = 0
+    while frame < n:
+        length = int(rng.geometric(1. / mean_run))
+        stop = min(n, frame + length)
+        k = int(rng.choice(len(shares), p=shares / shares.sum()))
+        part = slice(frame, stop)
+        if k and inside[part].any():
+            xy = players[part]
+            centre = np.nanmean(xy, axis=1, keepdims=True) if np.isfinite(xy).any() else None
+            if centre is not None:
+                distance = np.linalg.norm(xy - centre, axis=2)
+                distance[~np.isfinite(distance)] = -np.inf  # already missing: never chosen
+                # Substitute slots are always empty, so count the missing against 22 on the pitch.
+                already = np.maximum(0, 22 - np.isfinite(xy[..., 0]).sum(axis=1))
+                order = np.argsort(-distance, axis=1, kind='stable')
+                for row in range(stop - frame):
+                    extra = max(0, k - int(already[row]))
+                    if extra and inside[frame + row]:
+                        players[frame + row, order[row, :extra]] = np.nan
+        frame = stop
+
+
+def _blank_speeds(tracks, eligible, rng, fps):
+    """Blank speeds in ~1 s bursts per slot until the competition's missing-speed share."""
+    target = player_missing_profile()['speed_missing_share_given_position']
+    ends = np.full(len(tracks), len(tracks))
+    for slot in range(tracks.shape[1]):
+        valid = eligible[:, slot] & np.isfinite(tracks[:, slot, 2])
+        already = np.count_nonzero(eligible[:, slot] & ~np.isfinite(tracks[:, slot, 2]))
+        count = round(target * np.count_nonzero(eligible[:, slot])) - already
+        blank = _burst_mask(valid, count, rng, float(fps), ends)
+        tracks[blank, slot, 2] = np.nan

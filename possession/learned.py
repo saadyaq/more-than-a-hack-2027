@@ -24,14 +24,23 @@ from possession.data import Tracking
 from possession.features import FEATURE_NAMES, frame_features
 
 # Params
-MODEL_PATH = Path(__file__).resolve().parent / "learned_model.joblib"
-CONFIG_PATH = Path(__file__).resolve().parent / "learned_v7.json"
+HERE = Path(__file__).resolve().parent
+MODEL_PATH = HERE / "learned_model.joblib"  # v7
+CONFIG_PATH = HERE / "learned_v7.json"
+
 SUBSAMPLE = 5  # Neighbouring frames are near-duplicates; every fifth keeps training fast.
 GBM = dict(  # Moderate capacity: ~500k rows, 31 features, three classes.
     max_iter=300, learning_rate=0.05, max_leaf_nodes=31, min_samples_leaf=200,
     l2_regularization=1.0, early_stopping=False, random_state=0,
 )
 LABEL_CODES = {"H": p.HOME, "A": p.AWAY, "D": p.DEAD}
+
+
+def paths(version="v7"):
+    """(model, config) files of a learned version; v7 keeps its original file names."""
+    if version == "v7":
+        return MODEL_PATH, CONFIG_PATH
+    return HERE / "learned_model_{}.joblib".format(version), HERE / "learned_{}.json".format(version)
 
 
 def swap_teams(tracking):
@@ -79,13 +88,15 @@ def emissions(probs, prior, temperature):
     return scores
 
 
-def save(model, config):
-    joblib.dump(model, MODEL_PATH, compress=3)
-    CONFIG_PATH.write_text(json.dumps(config, indent=2, sort_keys=True) + "\n")
+def save(model, config, version="v7"):
+    model_path, config_path = paths(version)
+    joblib.dump(model, model_path, compress=3)
+    config_path.write_text(json.dumps(config, indent=2, sort_keys=True) + "\n")
 
 
-def load():
-    config = json.loads(CONFIG_PATH.read_text())
+def load(version="v7"):
+    model_path, config_path = paths(version)
+    config = json.loads(config_path.read_text())
     if tuple(config["features"]) != FEATURE_NAMES:
         raise ValueError("learned model was trained on different features")
-    return joblib.load(MODEL_PATH), config
+    return joblib.load(model_path), config
