@@ -39,12 +39,31 @@ MIN_CONTROL_S = 1.0  # A turnover needs about one second of clear control by the
 MIN_STOPPAGE_S = 1.0  # Declaring a stoppage needs about one second of collective stillness.
 P_SWITCH = W_CONTROL * FPS * MIN_CONTROL_S  # Scale turnover resistance with clear-control evidence.
 P_TO_DEAD = W_STILL * FPS * MIN_STOPPAGE_S  # Scale stoppage resistance with stillness evidence.
-P_FROM_DEAD = 4.0  # A restart is instantaneous once play resumes.
-V1_TRANSITION_PENALTIES = {  # Preserve the accepted v1 decoder while v2 uses the scaled defaults.
+# A fake stoppage (alive -> D -> alive) must never be cheaper than a direct turnover, or the
+# decoder routes every turnover through a phantom dead ball. Paying the difference on leaving D
+# keeps real restarts cheap in total, because a real stoppage already earned its entry cost.
+P_FROM_DEAD = P_SWITCH - P_TO_DEAD
+V1_TRANSITION_PENALTIES = {  # Preserve the accepted v1 decoder; later methods differ.
     "P_SWITCH": 8.0,  # Original v1 turnover resistance.
     "P_TO_DEAD": 6.0,  # Original v1 resistance to ending live play.
     "P_FROM_DEAD": 4.0,  # Original v1 restart resistance.
 }
+V2_TRANSITION_PENALTIES = {  # Preserve v2, which violates the fake-stoppage constraint below.
+    "P_SWITCH": P_SWITCH,  # Same evidence-scaled turnover resistance as the defaults.
+    "P_TO_DEAD": P_TO_DEAD,  # Same evidence-scaled stoppage resistance as the defaults.
+    "P_FROM_DEAD": 4.0,  # Original v2 restart resistance.
+}
+
+
+def check_no_cheap_fake_stoppage(penalties):
+    """Raise if alive -> D -> alive costs less than a direct H <-> A switch."""
+    if penalties["P_TO_DEAD"] + penalties["P_FROM_DEAD"] < penalties["P_SWITCH"]:
+        raise ValueError("fake stoppage cheaper than a turnover: P_TO_DEAD + P_FROM_DEAD "
+                         "< P_SWITCH")
+
+
+check_no_cheap_fake_stoppage(
+    {"P_SWITCH": P_SWITCH, "P_TO_DEAD": P_TO_DEAD, "P_FROM_DEAD": P_FROM_DEAD})
 EMISSION_BASELINE = 0.0  # Equal log-scores are uniform evidence over H, A and D.
 
 ATTACK_CODES = frozenset({  # These automatic phases describe the side attacking with the ball.

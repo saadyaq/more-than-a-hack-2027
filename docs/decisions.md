@@ -31,3 +31,15 @@
 - **Result (full match, no ground truth):** 225 possessions, median 10-14 s.
 - **Defect found:** 0 direct H<->A switches. Alive -> D -> alive costs 25 + 4 = 29 < 50, so every
   turnover is routed through a fake stoppage. Fixed in v3.
+
+## 2026-11-07 — Task 4: v3, no fake stoppage cheaper than a turnover
+
+- **What:** `P_FROM_DEAD = P_SWITCH - P_TO_DEAD` (= 25), so alive -> D -> alive can never undercut
+  a direct H <-> A switch; enforced by `check_no_cheap_fake_stoppage` at import. v1/v2 frozen,
+  hashes unchanged. (Codex timed out on this task; implemented by the orchestrator.)
+- **Result (full match, no ground truth):** 163 possessions, median 17-18 s, 21-31 direct
+  switches per half (v2: 0), D share unchanged at 35-41 %, tag agreement 62-68 %.
+- **Public window, bug check only:** valid, latency +0.2 frames. Not used to choose anything:
+  17 possessions cannot separate methods (see EVALUATION.md).
+- **Open question for v4:** direct switches look low for a full match — the 1 s control rule may
+  now be too strict where the ball is invisible (41 % of frames), since missing ball = no evidence.

@@ -41,7 +41,9 @@ def test_ball_out_causes_dead_state(penalties):
 def test_uniform_evidence_stays_dead_and_halves_reset():
     np.testing.assert_array_equal(viterbi(np.zeros((20, 3))), p.DEAD)
     evidence = np.tile([p.W_CONTROL, 0., 0.], (30, 1))
-    labels = decode(evidence, blocks=[(1, 2, 10), (2, 18, 26)])
+    # v2's cheap restart keeps these blocks short; this test is about the per-half reset.
+    labels = decode(evidence, blocks=[(1, 2, 10), (2, 18, 26)],
+                    penalties=p.V2_TRANSITION_PENALTIES)
     np.testing.assert_array_equal(labels[[2, 18]], "D")
     np.testing.assert_array_equal(labels[3:11], "H")
     np.testing.assert_array_equal(labels[19:27], "H")
@@ -78,11 +80,45 @@ def test_empty_and_invalid_evidence():
 def test_scaled_penalties_and_frozen_v1():
     assert p.P_SWITCH == p.W_CONTROL * p.FPS * p.MIN_CONTROL_S == 50.
     assert p.P_TO_DEAD == p.W_STILL * p.FPS * p.MIN_STOPPAGE_S == 25.
-    assert p.P_FROM_DEAD == 4.
+    assert p.P_FROM_DEAD == p.P_SWITCH - p.P_TO_DEAD == 25.
     np.testing.assert_array_equal(transition_scores(p.V1_TRANSITION_PENALTIES),
                                   [[0., -8., -6.], [-8., 0., -6.], [-4., -4., 0.]])
-    np.testing.assert_array_equal(transition_scores(),
+    np.testing.assert_array_equal(transition_scores(p.V2_TRANSITION_PENALTIES),
                                   [[0., -50., -25.], [-50., 0., -25.], [-4., -4., 0.]])
+    np.testing.assert_array_equal(transition_scores(),
+                                  [[0., -50., -25.], [-50., 0., -25.], [-25., -25., 0.]])
+
+
+def test_fake_stoppage_constraint():
+    with pytest.raises(ValueError):
+        p.check_no_cheap_fake_stoppage(p.V2_TRANSITION_PENALTIES)
+    p.check_no_cheap_fake_stoppage(
+        {"P_SWITCH": p.P_SWITCH, "P_TO_DEAD": p.P_TO_DEAD, "P_FROM_DEAD": p.P_FROM_DEAD})
+
+
+def test_v3_turnover_without_dead_evidence_is_direct():
+    context = 3 * p.FPS
+    evidence = np.zeros((2 * context, 3))
+    evidence[:context, p.HOME] = p.W_CONTROL
+    evidence[context:, p.AWAY] = p.W_CONTROL
+    path = viterbi(evidence)
+    assert not np.any(path[1:] == p.DEAD)
+    assert path[context - 1] == p.HOME and path[-1] == p.AWAY
+    # v2 hid the same turnover behind a phantom stoppage, or switched no cheaper than v3.
+    v2_path = viterbi(evidence, penalties=p.V2_TRANSITION_PENALTIES)
+    assert v2_path[-1] == p.AWAY
+
+
+def test_v3_real_stoppage_still_dead():
+    context = 3 * p.FPS
+    stoppage = 4 * p.FPS
+    evidence = np.zeros((2 * context + stoppage, 3))
+    evidence[:context, p.HOME] = p.W_CONTROL
+    evidence[context:context + stoppage, p.DEAD] = p.W_OUT + p.W_STILL
+    evidence[context + stoppage:, p.AWAY] = p.W_CONTROL
+    path = viterbi(evidence)
+    assert np.all(path[context + p.FPS:context + stoppage - p.FPS] == p.DEAD)
+    assert path[-1] == p.AWAY
 
 
 @pytest.mark.parametrize("seconds,should_switch", [(.5, False), (2., True)])
@@ -93,7 +129,7 @@ def test_v2_control_duration(seconds, should_switch):
     evidence = np.zeros((2 * context + duration, 3))
     evidence[:, p.HOME] = p.W_CONTROL
     evidence[context:context + duration] = [0., p.W_CONTROL, 0.]
-    path = viterbi(evidence)
+    path = viterbi(evidence, penalties=p.V2_TRANSITION_PENALTIES)
     if should_switch:
         np.testing.assert_array_equal(path[context + 1:context + duration - 1], p.AWAY)
         assert path[-1] == p.HOME

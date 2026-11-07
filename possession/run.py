@@ -11,7 +11,7 @@ from possession.data import load_smart_tagging, load_tracking
 from possession.decode import decode
 from possession.evidence import build_evidence
 from possession.io import write_submission
-from possession.params import DEFAULT_WINDOW, V1_TRANSITION_PENALTIES
+from possession.params import DEFAULT_WINDOW, V1_TRANSITION_PENALTIES, V2_TRANSITION_PENALTIES
 
 # Params
 RESULTS_DIR = Path(__file__).resolve().parents[1] / "evaluation" / "results"
@@ -38,11 +38,16 @@ def v1(tracking, window=None):
 
 
 def v2(tracking, window=None):
-    """Use evidence-scaled transition penalties; the baseline smoothing window is unused."""
+    """Preserve the accepted v2 penalties; the baseline smoothing window is unused."""
+    return _evidence_decode(tracking, penalties=V2_TRANSITION_PENALTIES)
+
+
+def v3(tracking, window=None):
+    """Default penalties: v2 plus no fake stoppage cheaper than a turnover."""
     return _evidence_decode(tracking)
 
 
-METHODS = {"baseline": baseline, "v1": v1, "v2": v2}
+METHODS = {"baseline": baseline, "v1": v1, "v2": v2, "v3": v3}
 
 
 def possession_count(labels):
