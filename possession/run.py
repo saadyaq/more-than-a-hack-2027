@@ -60,7 +60,34 @@ def v6(tracking, window=None):
                             evidence_params=METHOD_EVIDENCE_PARAMS["v6"])
 
 
-METHODS = {"baseline": baseline, "v1": v1, "v2": v2, "v3": v3, "v4": v4, "v6": v6}
+def v7(tracking, window=None):
+    """Learned emissions (gradient boosting, external games) plus Smart Tagging terms."""
+    from games import GAME, half_video_blocks
+    from possession import learned
+    from possession import params as p
+    from possession.evidence import restart_evidence, tag_evidence
+
+    start = perf_counter()
+    model, config = learned.load()
+    blocks = half_video_blocks(GAME)
+    probs = learned.predict_proba(model, tracking, blocks)
+    scores = learned.emissions(probs, np.array(config["prior"]), config["temperature"])
+    # Tag and restart weights were set against clear ball control (W_CONTROL per frame). Clear
+    # control in the learned model is about temperature * log(0.9 / (1/3)) per frame, so the
+    # same ratio keeps their intended strength relative to the ball.
+    tag_scale = config["temperature"] * np.log(0.9 * 3) / p.W_CONTROL
+    events = load_smart_tagging()
+    scores += tag_scale * tag_evidence(events, len(scores))
+    scores += tag_scale * restart_evidence(events, len(scores), blocks)
+    graded = np.zeros(len(scores), dtype=bool)
+    for _, first, last in blocks:
+        graded[first:last + 1] = True
+    scores[~graded] = 0.
+    print("learned evidence: {:.3f} s".format(perf_counter() - start))
+    return decode(scores, penalties=METHOD_TRANSITION_PENALTIES["v7"])
+
+
+METHODS = {"baseline": baseline, "v1": v1, "v2": v2, "v3": v3, "v4": v4, "v6": v6, "v7": v7}
 
 
 def validate_method_penalties(methods):

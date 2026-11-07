@@ -100,3 +100,21 @@
 - **Leave-one-game-out, real-gap degrader, no shape (tuned_v5.json, kept for the record):**
   held-out game 1 0.378 -> 0.501, game 2 0.319 -> 0.540, game 3 0.291 -> 0.440. Tuning
   generalises to unseen games by +0.12 to +0.22, far above the ~0.04 noise band.
+
+## 2026-11-07 — v7: learned emission model (current submission)
+
+- **What:** 31 per-frame tracking features (`possession/features.py`, incl. ball-blackout context
+  looking at the last and next sighting), HistGradientBoostingClassifier for P(H, A, D), trained
+  on the external games in both team orientations and symmetrised at prediction. Emissions
+  T * (log P - log prior); Smart Tagging / restart / kick-off terms rescaled to keep their ratio
+  to clear control; Viterbi as before. Temperature and penalties tuned on out-of-fold
+  predictions (`possession/train_learned.py`).
+- **Result (external, degraded, out-of-fold = held-out game):** spellF1 0.608, macroF1 0.800;
+  per game 0.623 / 0.643 / 0.559. Previous best honest estimate (tuned hand-written evidence,
+  leave-one-game-out): 0.49.
+- **Competition match (diagnostics only):** 254 possessions, mean 15-17 s, D 32-41 %, Smart
+  Tagging agreement 58-61 % (v6 57-60 %). Deterministic; SHA-1 9e4a3c00…
+- **Domain check (aggregate feature quantiles, competition vs external):** close, except fewer
+  tracked players in the competition (median 20 vs 21, p10 15 vs 19), lower still-player speeds,
+  and the ball more often reappearing out of the pitch. Candidate simulator fixes.
+- Submission switched to v7 (`scripts/reproduce.sh`).
