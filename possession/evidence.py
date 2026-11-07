@@ -10,6 +10,7 @@ import numpy as np
 
 from games import GAME, half_video_blocks
 from possession import params as p
+from possession.shape import shape_logit
 from possession.ball import ball_speed_mps, interpolate_short_gaps, out_of_pitch
 
 
@@ -20,6 +21,7 @@ EVIDENCE_PARAMS = frozenset({
     'INTERPOLATED_CONTROL_WEIGHT', 'W_TAG_ATTACK', 'W_TAG_DEFEND', 'TAG_CAP', 'W_OUT',
     'STILL_WINDOW_S', 'STILL_SPEED_MPS', 'W_STILL', 'W_STILL_NO_BALL', 'RESTART_LEAD_S',
     'W_RESTART_DEAD', 'RESTART_ALIVE_S', 'W_RESTART_ALIVE', 'W_PREKICKOFF',
+    'W_SHAPE', 'SHAPE_BALL_FACTOR',
 })
 
 
@@ -180,6 +182,13 @@ def build_evidence(tracking, events, blocks=None, *, fps=p.FPS, params=None):
     evidence[:, p.DEAD] += config.W_OUT * out_of_pitch(ball_xy, config.OUT_MARGIN_M, pitch=tracking.pitch)
     evidence += stillness_evidence(tracking, observed, fps=fps, config=config)
     evidence += restart_evidence(events, len(ball_xy), blocks, fps=fps, config=config)
+    if config.W_SHAPE:
+        # Team shape speaks for the ball when the tracker has lost it; split the log-odds
+        # evenly so H and A move apart symmetrically and D is untouched.
+        weight = config.W_SHAPE * np.where(observed, config.SHAPE_BALL_FACTOR, 1.)
+        half_logit = 0.5 * weight * shape_logit(tracking, blocks, fps=fps)
+        evidence[:, p.HOME] += half_logit
+        evidence[:, p.AWAY] -= half_logit
     graded = np.zeros(len(ball_xy), dtype=bool)
     for _, start, end in blocks:
         graded[max(0, start):max(0, min(len(graded), end + 1))] = True

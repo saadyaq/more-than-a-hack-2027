@@ -47,6 +47,8 @@ EVIDENCE_GRID = {  # Ranges span what is physically plausible, centred on the v3
     "STILL_SPEED_MPS": [0.8, 1.2, 1.6, 2.0, 2.5],
     "W_STILL": [0.25, 0.5, 1.0, 2.0],
     "W_STILL_NO_BALL": [0.0, 0.5, 1.0, 2.0, 4.0],
+    "W_SHAPE": [0.0, 0.05, 0.1, 0.2, 0.4],  # Team shape when the ball is lost (shape.py).
+    "SHAPE_BALL_FACTOR": [0.0, 0.25, 0.5, 1.0],
 }
 TRANSITION_GRID = {  # W_CONTROL stays at 2.0 and anchors the scale of every penalty.
     "P_SWITCH": [5.0, 10.0, 15.0, 20.0, 30.0, 50.0, 75.0],
@@ -60,6 +62,17 @@ def start_point():
     point = {name: getattr(p, name) for name in EVIDENCE_GRID}
     point.update(P_SWITCH=p.P_SWITCH, P_TO_DEAD=p.P_TO_DEAD,
                  P_FROM_DEAD_EXTRA=p.P_FROM_DEAD - max(0., p.P_SWITCH - p.P_TO_DEAD))
+    return point
+
+
+def start_from(path):
+    """A previous tuning result as the starting point; parameters it lacks keep v3 values."""
+    previous = json.loads(Path(path).read_text())
+    point = dict(start_point(), **previous["evidence"])
+    penalties = previous["penalties"]
+    point.update(P_SWITCH=penalties["P_SWITCH"], P_TO_DEAD=penalties["P_TO_DEAD"],
+                 P_FROM_DEAD_EXTRA=penalties["P_FROM_DEAD"]
+                 - max(0., penalties["P_SWITCH"] - penalties["P_TO_DEAD"]))
     return point
 
 
@@ -135,11 +148,14 @@ def coordinate_descent(objective, point, log):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--no-folds", action="store_true", help="skip leave-one-game-out")
+    parser.add_argument("--start", help="previous tuned_*.json to start from (default: v3)")
+    parser.add_argument("--output", default=str(OUTPUT), help="where to write the result")
     args = parser.parse_args(argv)
 
     def log(line):
         print(line, flush=True)
 
+    origin = (lambda: start_from(args.start)) if args.start else start_point
     cases = load_cases(GAMES, SEEDS)
     if not args.no_folds:
         for held_out in GAMES:
@@ -147,15 +163,15 @@ def main(argv=None):
                 [g for g in GAMES if g != held_out], held_out))
             train = Objective([case for case in cases if case[0] != held_out])
             test = Objective([case for case in cases if case[0] == held_out])
-            tuned, _ = coordinate_descent(train, start_point(), log)
-            log("  held-out game {}: v3 spellF1 {:.4f} -> tuned {:.4f}".format(
-                held_out, test(start_point()), test(tuned)))
+            tuned, _ = coordinate_descent(train, origin(), log)
+            log("  held-out game {}: start spellF1 {:.4f} -> tuned {:.4f}".format(
+                held_out, test(origin()), test(tuned)))
 
     log("final: tune on all games")
     everything = Objective(cases)
-    tuned, best = coordinate_descent(everything, start_point(), log)
-    before, after = everything.metrics(start_point()), everything.metrics(tuned)
-    for label, metrics in (("v3", before), ("tuned", after)):
+    tuned, best = coordinate_descent(everything, origin(), log)
+    before, after = everything.metrics(origin()), everything.metrics(tuned)
+    for label, metrics in (("start", before), ("tuned", after)):
         log("{:<6} spellF1 {:.4f}  macroF1 {:.4f}  possessions {:.1f}/{:.1f}".format(
             label, metrics["spell_f1_mean"], metrics["macro_f1"],
             metrics["n_pred_spells"], metrics["n_gt_spells"]))
@@ -163,8 +179,8 @@ def main(argv=None):
               "penalties": penalties_of(tuned),
               "objective": {"metric": "spell_f1_mean", "games": list(GAMES),
                             "seeds": list(SEEDS), "value": best}}
-    OUTPUT.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
-    log("wrote {}".format(OUTPUT))
+    Path(args.output).write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
+    log("wrote {}".format(args.output))
 
 
 if __name__ == "__main__":

@@ -1,0 +1,21 @@
+{
+  "features": [
+    "territory",
+    "depth",
+    "width",
+    "move"
+  ],
+  "weights": [
+    -0.08449068998305244,
+    -0.08303477211923435,
+    1.8792393849652327,
+    0.5884397988283491
+  ],
+  "scale": [
+    0.31419828601614397,
+    0.6570649250785798,
+    0.416967179407916,
+    1.55675757342868
+  ],
+  "trained_on": "Metrica public sample games 1-3, degraded seeds 0-2 (external data only)"
+}

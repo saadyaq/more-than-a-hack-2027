@@ -40,6 +40,8 @@ W_RESTART_DEAD = 1.0  # Restart tags weakly identify the preceding stoppage.
 RESTART_ALIVE_S = 2.0  # A known restarting team gets a brief possession prior after restart.
 W_RESTART_ALIVE = 0.5  # Restart possession is useful but the automatic tag can be wrong.
 W_PREKICKOFF = 10.0  # The graded half before its tagged kickoff is strongly dead play.
+W_SHAPE = 0.0  # Weight of the team-shape log-odds per frame; 0 keeps v1-v5 unchanged.
+SHAPE_BALL_FACTOR = 0.0  # Share of W_SHAPE kept when the ball is seen; direct control rules then.
 
 MIN_CONTROL_S = 1.0  # A turnover needs about one second of clear control by the new team.
 MIN_STOPPAGE_S = 1.0  # Declaring a stoppage needs about one second of collective stillness.
