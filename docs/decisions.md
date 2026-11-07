@@ -22,3 +22,12 @@
   D share 35-40 %, 112-117 direct H<->A switches per half; agreement with Smart Tagging attacking
   team 65 % (baseline50: 49 %).
 - **Public window, bug check only:** valid, teams not inverted, latency +0.9 frames.
+
+## 2026-11-07 — Task 3: v2, penalties in units of evidence
+
+- **What:** `P_SWITCH = W_CONTROL * FPS * MIN_CONTROL_S` (1 s of clear control, = 50) and
+  `P_TO_DEAD = W_STILL * FPS * MIN_STOPPAGE_S` (1 s of stillness, = 25), from CHALLENGE.md: a touch,
+  deflection or aerial duel without control is not a change of possession. v1 kept frozen.
+- **Result (full match, no ground truth):** 225 possessions, median 10-14 s.
+- **Defect found:** 0 direct H<->A switches. Alive -> D -> alive costs 25 + 4 = 29 < 50, so every
+  turnover is routed through a fake stoppage. Fixed in v3.

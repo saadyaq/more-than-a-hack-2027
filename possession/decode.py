@@ -6,14 +6,19 @@ from games import GAME, half_video_blocks
 from possession import params as p
 
 
-def transition_scores():
+def transition_scores(penalties=None):
     """Rows are the previous state, columns the next; entering and leaving dead differ."""
-    return np.array([[0., -p.P_SWITCH, -p.P_TO_DEAD],
-                     [-p.P_SWITCH, 0., -p.P_TO_DEAD],
-                     [-p.P_FROM_DEAD, -p.P_FROM_DEAD, 0.]])
+    if penalties is None:
+        penalties = {"P_SWITCH": p.P_SWITCH, "P_TO_DEAD": p.P_TO_DEAD,
+                     "P_FROM_DEAD": p.P_FROM_DEAD}
+    switch, to_dead, from_dead = (penalties[key] for key in
+                                  ("P_SWITCH", "P_TO_DEAD", "P_FROM_DEAD"))
+    return np.array([[0., -switch, -to_dead],
+                     [-switch, 0., -to_dead],
+                     [-from_dead, -from_dead, 0.]])
 
 
-def viterbi(evidence):
+def viterbi(evidence, penalties=None):
     """Prefer a self predecessor on ties, then H/A/D; first frame is fixed to D.
 
     At a tied terminal score, prefer a state whose selected last step stayed, then
@@ -24,7 +29,7 @@ def viterbi(evidence):
         raise ValueError("evidence must be a finite (n_frames, 3) array")
     if not len(evidence):
         return np.empty(0, dtype=np.int8)
-    transition = transition_scores()
+    transition = transition_scores(penalties)
     states = np.arange(3)
     previous = np.empty((len(evidence), 3), dtype=np.int8)
     previous[0] = states
@@ -45,7 +50,7 @@ def viterbi(evidence):
     return path
 
 
-def decode(evidence, blocks=None):
+def decode(evidence, blocks=None, penalties=None):
     """Graded block ends are inclusive; every other video frame is X."""
     if blocks is None:
         blocks = half_video_blocks(GAME)
@@ -54,5 +59,5 @@ def decode(evidence, blocks=None):
     for _, start, end in blocks:
         start, stop = max(0, start), min(len(labels), end + 1)
         if start < stop:
-            labels[start:stop] = alphabet[viterbi(evidence[start:stop])]
+            labels[start:stop] = alphabet[viterbi(evidence[start:stop], penalties=penalties)]
     return labels

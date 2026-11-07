@@ -11,7 +11,7 @@ from possession.data import load_smart_tagging, load_tracking
 from possession.decode import decode
 from possession.evidence import build_evidence
 from possession.io import write_submission
-from possession.params import DEFAULT_WINDOW
+from possession.params import DEFAULT_WINDOW, V1_TRANSITION_PENALTIES
 
 # Params
 RESULTS_DIR = Path(__file__).resolve().parents[1] / "evaluation" / "results"
@@ -21,18 +21,28 @@ def baseline(tracking, window):
     return majority_smooth(nearest_team(tracking), window)
 
 
-def v1(tracking, window=None):
-    """The baseline window argument is unused; all v1 parameters live in params.py."""
+def _evidence_decode(tracking, penalties=None):
+    """Both versions share unchanged evidence and differ only in transition penalties."""
     start = perf_counter()
     evidence = build_evidence(tracking, load_smart_tagging())
     print("evidence: {:.3f} s".format(perf_counter() - start))
     start = perf_counter()
-    labels = decode(evidence)
+    labels = decode(evidence, penalties=penalties)
     print("decoder: {:.3f} s".format(perf_counter() - start))
     return labels
 
 
-METHODS = {"baseline": baseline, "v1": v1}
+def v1(tracking, window=None):
+    """Preserve the accepted v1 penalties; the baseline smoothing window is unused."""
+    return _evidence_decode(tracking, penalties=V1_TRANSITION_PENALTIES)
+
+
+def v2(tracking, window=None):
+    """Use evidence-scaled transition penalties; the baseline smoothing window is unused."""
+    return _evidence_decode(tracking)
+
+
+METHODS = {"baseline": baseline, "v1": v1, "v2": v2}
 
 
 def possession_count(labels):

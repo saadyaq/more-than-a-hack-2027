@@ -35,25 +35,29 @@ def test_baseline50_byte_identical():
 
 
 @pytest.mark.data
-def test_v1_valid_and_deterministic():
+@pytest.mark.parametrize("method", ["v1", "v2"])
+def test_evidence_methods_valid_and_deterministic(method):
     from evaluation import possession_metrics as pm
     from games import source_frames
-    from possession.run import v1
+    from possession.run import METHODS
 
     results = Path(__file__).resolve().parents[1] / "evaluation" / "results"
     try:
         tracking = load_tracking()
         hashes, valid = [], True
-        with tempfile.TemporaryDirectory(prefix="v1_regression_", dir=results) as folder:
+        with tempfile.TemporaryDirectory(prefix=method + "_regression_", dir=results) as folder:
             for repeat in range(2):
-                labels = v1(tracking)
+                labels = METHODS[method](tracking)
                 path = write_submission(Path(folder) / (str(repeat) + ".csv"), labels)
                 hashes.append(digest(path))
                 valid = valid and pm.validate_submission(pm.read_label_csv(path), source_frames()) is None
         matches = hashes[0] == hashes[1]
+        if method == "v1":
+            # Compare against the accepted file; never regenerate it during this test.
+            matches = matches and hashes[0] == digest(results / "v1.csv")
     except Exception:
-        pytest.fail("V1 data regression could not complete; details suppressed to protect match data",
+        pytest.fail("Evidence-method regression could not complete; details suppressed to protect match data",
                     pytrace=False)
     if not valid or not matches:
-        pytest.fail("V1 validation or deterministic hash comparison failed (contents suppressed)",
+        pytest.fail("Validation or deterministic/reference hash comparison failed (contents suppressed)",
                     pytrace=False)

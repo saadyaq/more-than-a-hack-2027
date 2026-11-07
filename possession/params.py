@@ -1,4 +1,4 @@
-"""Fixed baseline/v1 parameters, chosen by the architect without public-GT tuning."""
+"""Fixed baseline/v1/v2 parameters, chosen by the architect without public-GT tuning."""
 
 from games import GAME, GAMES
 
@@ -35,9 +35,16 @@ RESTART_ALIVE_S = 2.0  # A known restarting team gets a brief possession prior a
 W_RESTART_ALIVE = 0.5  # Restart possession is useful but the automatic tag can be wrong.
 W_PREKICKOFF = 10.0  # The graded half before its tagged kickoff is strongly dead play.
 
-P_SWITCH = 8.0  # Team turnovers need sustained evidence, not a single noisy observation.
-P_TO_DEAD = 6.0  # Ending live play needs stronger evidence than simply staying alive.
-P_FROM_DEAD = 4.0  # Restarting play requires evidence but is easier than inventing a stop.
+MIN_CONTROL_S = 1.0  # A turnover needs about one second of clear control by the new team.
+MIN_STOPPAGE_S = 1.0  # Declaring a stoppage needs about one second of collective stillness.
+P_SWITCH = W_CONTROL * FPS * MIN_CONTROL_S  # Scale turnover resistance with clear-control evidence.
+P_TO_DEAD = W_STILL * FPS * MIN_STOPPAGE_S  # Scale stoppage resistance with stillness evidence.
+P_FROM_DEAD = 4.0  # A restart is instantaneous once play resumes.
+V1_TRANSITION_PENALTIES = {  # Preserve the accepted v1 decoder while v2 uses the scaled defaults.
+    "P_SWITCH": 8.0,  # Original v1 turnover resistance.
+    "P_TO_DEAD": 6.0,  # Original v1 resistance to ending live play.
+    "P_FROM_DEAD": 4.0,  # Original v1 restart resistance.
+}
 EMISSION_BASELINE = 0.0  # Equal log-scores are uniform evidence over H, A and D.
 
 ATTACK_CODES = frozenset({  # These automatic phases describe the side attacking with the ball.
