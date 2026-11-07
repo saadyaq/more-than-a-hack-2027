@@ -54,7 +54,13 @@ def v4(tracking, window=None):
                             evidence_params=METHOD_EVIDENCE_PARAMS["v4"])
 
 
-METHODS = {"baseline": baseline, "v1": v1, "v2": v2, "v3": v3, "v4": v4}
+def v6(tracking, window=None):
+    """v4 plus team-shape evidence, tuned on external games with realistic ball loss."""
+    return _evidence_decode(tracking, penalties=METHOD_TRANSITION_PENALTIES["v6"],
+                            evidence_params=METHOD_EVIDENCE_PARAMS["v6"])
+
+
+METHODS = {"baseline": baseline, "v1": v1, "v2": v2, "v3": v3, "v4": v4, "v6": v6}
 
 
 def validate_method_penalties(methods):

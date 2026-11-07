@@ -79,3 +79,21 @@
 - **Edge-of-grid values** (CONTROL_SPEED_MPS 20, MAX_GAP_FRAMES 100, W_OUT 6,
   W_STILL_NO_BALL 2): the optimum may lie beyond the grid; MAX_GAP's optimum depends on the
   simulator's gap model.
+
+## 2026-11-07 — Real ball-gap degrader, team-shape evidence, v6
+
+- **Finding (aggregate of the competition ATD, no ground truth):** the tracker loses the ball in
+  ~150 long blackouts per match (median 10.7 s, 99.7 % of missing frames in gaps > 5 s), not in
+  short occlusions. The degrader now draws gap lengths from 21 aggregate quantiles of these gaps
+  (`possession/ball_gap_quantiles.json`). v4 was tuned under the old geometric bursts.
+- **Team-shape model (`possession/shape.py`, `train_shape.py`):** symmetric, intercept-free
+  logistic regression on team width, depth, territory and forward movement, trained on the
+  external games only. Held-out-game accuracy 82-83 % (chance 50 %); width dominates. A
+  non-antisymmetric "advance" feature was dropped after the symmetry test caught it.
+- **v6** = v4's model + team-shape evidence, tuned from v4 on the external games with the new
+  degrader: spellF1 0.501 -> 0.551, macroF1 0.758 -> 0.783 (external, degraded).
+  Leave-one-game-out with the new degrader (no shape): held-out game 1 0.378 -> 0.501,
+  game 2 0.319 -> 0.540.
+- **Competition match (diagnostics only):** 283 possessions, mean 11.6-14.7 s, D 39-45 %.
+- **Still on grid edges:** CONTROL_SPEED_MPS 30, W_OUT 12, SHAPE_BALL_FACTOR 1.0,
+  STILL_WINDOW_S 1, W_STILL 0.25, CONTEST_MARGIN_M 0.25.

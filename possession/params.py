@@ -69,7 +69,12 @@ METHOD_TRANSITION_PENALTIES = {  # Every decoder method declares the penalties i
 # Tuned on the Metrica public sample games (external data), as the organisers require.
 TUNED_V4 = json.loads((Path(__file__).resolve().parent / "tuned_v4.json").read_text())
 METHOD_TRANSITION_PENALTIES["v4"] = TUNED_V4["penalties"]
-METHOD_EVIDENCE_PARAMS = {"v4": TUNED_V4["evidence"]}  # Methods not listed use the defaults.
+TUNED_V6 = json.loads((Path(__file__).resolve().parent / "tuned_v6.json").read_text())
+METHOD_TRANSITION_PENALTIES["v6"] = TUNED_V6["penalties"]
+METHOD_EVIDENCE_PARAMS = {  # Methods not listed use the defaults.
+    "v4": TUNED_V4["evidence"],
+    "v6": TUNED_V6["evidence"],  # Adds team shape; tuned with the real-gap degrader.
+}
 HISTORICAL_METHODS = frozenset({"v1", "v2"})  # Keep accepted paths exempt from the new constraint.
 SHORT_DEAD_RUN_S = 1.0  # Sub-second stoppages can reveal artificial dead-ball bridges.
 
