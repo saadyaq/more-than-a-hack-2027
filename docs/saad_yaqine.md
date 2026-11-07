@@ -1,7 +1,7 @@
 # Ball possession from automatic tracking — technical document
 
 **Team:** Saad Yaqine · **Challenge:** More than a Hack 2027, Initial Challenge (Phase 1)
-**Submission:** `saad_yaqine.csv`, method `v7` · **Repository:**
+**Submission:** `saad_yaqine.csv`, method `v8` · **Repository:**
 https://github.com/saadyaq/more-than-a-hack-2027 (branch `dev`; the README gives the exact command
 that regenerates the file).
 
@@ -61,7 +61,7 @@ the prior is the class frequency in training. Smart Tagging terms are then added
 - the graded half before each tagged Kick Off (Start) gets +10 to D.
 
 These weights were set against clear ball control, worth 2 per frame in our hand-written model.
-In v7 they are rescaled by `T · ln 2.7 / 2`, so that they keep the same strength relative to clear
+In the learned model they are rescaled by `T · ln 2.7 / 2`, so that they keep the same strength relative to clear
 control. They could not be tuned, because the external games have no Smart Tagging.
 
 Viterbi runs over (H, A, D), independently on each graded half, starting in D. The transition
@@ -107,7 +107,11 @@ used, and the video was never used.
   match the automatic tracker:
   - the ball is removed on 41 % of frames, in blackouts whose lengths follow the competition's
     ball-gap quantiles, started preferentially in crowded situations;
-  - player observations are dropped on 7 % of frames;
+  - players are removed in runs of about a second, as many per frame as the competition
+    tracker misses (its per-frame missing-count shares, an aggregate statistic), choosing those
+    farthest from play, as a camera following the action would lose them;
+  - speeds are kept from the clean track, as a smoothing tracker reports them, and blanked on 8 %
+    of player observations, as in the competition ATD;
   - 0.15 m of time-correlated position noise is added (AR(1), about 1 s, as a filtered tracker
     drifts).
 
@@ -129,15 +133,17 @@ used, and the video was never used.
 | v3: hand-written evidence, reasoned parameters | 0.33 | 0.68 | no tuning |
 | v6: hand-written evidence + team shape, parameters tuned | 0.55 | 0.78 | in-sample |
 | tuned hand-written evidence, leave-one-game-out | 0.49 | — | held-out game |
-| **v7: learned classifier** | **0.61** | **0.80** | **out-of-fold, held-out game** |
+| v7: learned classifier, first degrader | 0.61 | 0.80 | out-of-fold, held-out game |
+| **v8: learned classifier, realistic player loss and speeds** | **0.62** | **0.80** | **out-of-fold, held-out game** |
 
-v7 per held-out game: game 1 0.623, game 2 0.643, game 3 0.559. Every v7 number is measured on a
-game the classifier never saw. The decoder settings were tuned on the pooled out-of-fold
+v8 per held-out game: game 1 0.627, game 2 0.662, game 3 0.560. Every v7 and v8 number is measured
+on a game the classifier never saw. v8's degraded data is the more realistic of the two, so it is the
+submission. The decoder settings were tuned on the pooled out-of-fold
 predictions, which is slightly optimistic for four parameters.
 
-### 3.2 Final settings (`possession/learned_v7.json`)
+### 3.2 Final settings (`possession/learned_v8.json`)
 
-T = 0.4 · P_SWITCH = 4 · P_TO_DEAD = 32 · P_FROM_DEAD = 4 · prior (H, A, D) =
+T = 0.4 · P_SWITCH = 4 · P_TO_DEAD = 32 · P_FROM_DEAD = 0 · prior (H, A, D) =
 (0.28, 0.28, 0.44).
 
 ## 4. Possession rules implemented
@@ -161,16 +167,15 @@ T = 0.4 · P_SWITCH = 4 · P_TO_DEAD = 32 · P_FROM_DEAD = 4 · prior (H, A, D) 
 
 - **Domain gap.** The classifier is trained on degraded external games, whose labels come from
   event data rather than from corrected tracking. We compared the distribution of every feature
-  between the competition match and the external games. They agree closely, except that the
-  competition tracks fewer players (median 20 against 21), shows lower speeds when players stand
-  still, and more often sees the ball reappear outside the pitch (restarts taken from beyond the
-  line). External scores are an estimate, not a prediction of our score.
+  between the competition match and the degraded external games. The first degrader tracked too
+  many players and inflated still-player speeds; profile v2 fixes both (tracked players p10/50/90
+  16/20/21 against 15/20/21, still-player speed p10 0.60 against 0.60 m/s). The ball still
+  reappears outside the pitch more often in the competition (restarts taken from beyond the line). External scores are an estimate, not a prediction of our score.
 - **Untuned Smart Tagging weights.** The external games have no Smart Tagging, so its weights
   are rescaled by reasoning, not fitted.
 - **Three training games.** More external games with tracking and events would reduce variance,
   and per-game scores already range from 0.56 to 0.64.
-- **Next steps:** degrade player tracking to match the competition's tracked-player counts;
-  synthesise Smart Tagging-like cues on the external games so their weights can be fitted; add
+- **Next steps:** synthesise Smart Tagging-like cues on the external games so their weights can be fitted; add
   external games.
 
 ## 6. Reproduction
@@ -179,12 +184,12 @@ T = 0.4 · P_SWITCH = 4 · P_TO_DEAD = 32 · P_FROM_DEAD = 4 · prior (H, A, D) 
 python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 export MTAH_DATA_DIR=/path/to/unpacked/bundle
 scripts/reproduce.sh saad_yaqine
-# -> evaluation/results/saad_yaqine.csv, SHA-1 9e4a3c00855b7c8fc6965eac744511a56d89da9e
+# -> evaluation/results/saad_yaqine.csv, SHA-1 e0f12d36d8336e02d59c1e8952f3724c8fcddd54
 ```
 
 The run is deterministic and takes about 4 s once the tracking is cached. The training can be
 re-run from `scripts/fetch_external_data.sh`, then `python -m possession.train_shape` and
-`python -m possession.train_learned`. Every design decision is logged in `docs/decisions.md`,
+`python -m possession.train_learned --version v8 --profile v2`. Every design decision is logged in `docs/decisions.md`,
 with its measured effect.
 
 ## 7. Tools

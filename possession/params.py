@@ -71,11 +71,12 @@ TUNED_V4 = json.loads((Path(__file__).resolve().parent / "tuned_v4.json").read_t
 METHOD_TRANSITION_PENALTIES["v4"] = TUNED_V4["penalties"]
 TUNED_V6 = json.loads((Path(__file__).resolve().parent / "tuned_v6.json").read_text())
 METHOD_TRANSITION_PENALTIES["v6"] = TUNED_V6["penalties"]
-# v7 decodes learned emissions; its penalties come with the model (possession/train_learned.py).
-# Absent only before the first training run, which imports this module to produce it.
-_LEARNED_V7 = Path(__file__).resolve().parent / "learned_v7.json"
-if _LEARNED_V7.exists():
-    METHOD_TRANSITION_PENALTIES["v7"] = json.loads(_LEARNED_V7.read_text())["penalties"]
+# Learned versions decode with penalties saved next to their model (possession/train_learned.py).
+# A file is absent only before its first training run, which imports this module to produce it.
+for _version in ("v7", "v8"):
+    _learned = Path(__file__).resolve().parent / "learned_{}.json".format(_version)
+    if _learned.exists():
+        METHOD_TRANSITION_PENALTIES[_version] = json.loads(_learned.read_text())["penalties"]
 METHOD_EVIDENCE_PARAMS = {  # Methods not listed use the defaults.
     "v4": TUNED_V4["evidence"],
     "v6": TUNED_V6["evidence"],  # Adds team shape; tuned with the real-gap degrader.

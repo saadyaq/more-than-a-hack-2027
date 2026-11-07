@@ -118,3 +118,16 @@
   tracked players in the competition (median 20 vs 21, p10 15 vs 19), lower still-player speeds,
   and the ball more often reappearing out of the pitch. Candidate simulator fixes.
 - Submission switched to v7 (`scripts/reproduce.sh`).
+
+## 2026-11-08 — Degrader profile v2 and v8 (current submission)
+
+- **Domain gaps closed (aggregate statistics of the competition ATD):** per-frame missing-player
+  counts (`possession/player_missing_shares.json`) and an 8 % missing-speed share. Profile v2 of
+  the degrader removes the players farthest from play in ~1 s runs to match the counts, keeps clean
+  speeds (the jitter had created a fake 1.05 m/s still-player floor; clean external and
+  competition both give 0.60), and blanks speeds at the competition rate. Result: tracked
+  players p10/50/90 16/20/21 vs competition 15/20/21.
+- **v8** = v7's learned model retrained on profile-v2 data: out-of-fold spellF1 0.616 (per game
+  0.627 / 0.662 / 0.560), macroF1 0.798, on the more realistic data. Submission switched to v8.
+- **Competition match (diagnostics only):** 284 possessions, D 29-35 %, Smart Tagging agreement
+  60-61.5 % (highest of all versions). SHA-1 e0f12d36…

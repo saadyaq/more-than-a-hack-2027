@@ -62,13 +62,23 @@ def v6(tracking, window=None):
 
 def v7(tracking, window=None):
     """Learned emissions (gradient boosting, external games) plus Smart Tagging terms."""
+    return _learned_decode(tracking, "v7")
+
+
+def v8(tracking, window=None):
+    """v7 retrained on external games degraded like the real tracker's player loss too."""
+    return _learned_decode(tracking, "v8")
+
+
+def _learned_decode(tracking, version):
+    """Decode one learned version: its classifier, temperature and penalties."""
     from games import GAME, half_video_blocks
     from possession import learned
     from possession import params as p
     from possession.evidence import restart_evidence, tag_evidence
 
     start = perf_counter()
-    model, config = learned.load()
+    model, config = learned.load(version)
     blocks = half_video_blocks(GAME)
     probs = learned.predict_proba(model, tracking, blocks)
     scores = learned.emissions(probs, np.array(config["prior"]), config["temperature"])
@@ -84,10 +94,10 @@ def v7(tracking, window=None):
         graded[first:last + 1] = True
     scores[~graded] = 0.
     print("learned evidence: {:.3f} s".format(perf_counter() - start))
-    return decode(scores, penalties=METHOD_TRANSITION_PENALTIES["v7"])
+    return decode(scores, penalties=METHOD_TRANSITION_PENALTIES[version])
 
 
-METHODS = {"baseline": baseline, "v1": v1, "v2": v2, "v3": v3, "v4": v4, "v6": v6, "v7": v7}
+METHODS = {"baseline": baseline, "v1": v1, "v2": v2, "v3": v3, "v4": v4, "v6": v6, "v7": v7, "v8": v8}
 
 
 def validate_method_penalties(methods):

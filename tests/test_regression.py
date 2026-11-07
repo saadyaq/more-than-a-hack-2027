@@ -35,7 +35,7 @@ def test_baseline50_byte_identical():
 
 
 @pytest.mark.data
-@pytest.mark.parametrize("method", ["v1", "v2", "v3", "v4", "v6", "v7"])
+@pytest.mark.parametrize("method", ["v1", "v2", "v3", "v4", "v6", "v7", "v8"])
 def test_evidence_methods_valid_and_deterministic(method):
     from evaluation import possession_metrics as pm
     from games import source_frames
