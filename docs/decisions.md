@@ -148,3 +148,13 @@
   agreement 53-58 % (v8 60-62 %). SHA-1 ee5b89c4…
 - **Rejected:** simulated Smart Tagging to fit its weights — the real tags' accuracy is unknown,
   so any simulated noise level would be arbitrary.
+
+## 2026-11-08 — v10: six degradation seeds (current submission)
+
+- v9's setup with seeds 0-5 instead of 0-2 (~1 M training rows). Out-of-fold spellF1 0.529,
+  macroF1 0.777 (v9 0.520 / 0.772); per game 0.529 / 0.539 / 0.519. Small gain, inside the noise
+  band, consistent on all three games; more training variety, so adopted.
+- Competition (diagnostics only): 276 possessions, D 33-43 %, Smart Tagging agreement 52-58 %.
+  SHA-1 wrote
+OK
+cbffc044b141415d91e3781e377fb199cd612c64.

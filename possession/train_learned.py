@@ -49,8 +49,10 @@ def main(argv=None):
     parser.add_argument("--version", default="v7", help="output version name (v7 = original files)")
     parser.add_argument("--profile", default="v1", choices=["v1", "v2", "v3"],
                         help="degrader profile: v2 matches player loss and speeds; v3 also fills dead-ball gaps")
+    parser.add_argument("--seeds", type=int, nargs="+", default=list(SEEDS),
+                        help="degradation seeds per external game")
     args = parser.parse_args(argv)
-    cases = load_cases(GAMES, SEEDS, profile=args.profile)
+    cases = load_cases(GAMES, tuple(args.seeds), profile=args.profile)
     rows = {}
     for index, (game, _, tracking, blocks, truth) in enumerate(cases):
         rows[index] = training_rows(tracking, blocks, truth)
@@ -108,8 +110,8 @@ def main(argv=None):
                  "temperature": point["TEMPERATURE"], "penalties": penalties_of(point),
                  "out_of_fold_spell_f1": mean["spell_f1_mean"],
                  "out_of_fold_macro_f1": mean["macro_f1"],
-                 "trained_on": "Metrica public sample games 1-3, degraded seeds 0-2 (external only)",
-                 "degrader_profile": args.profile}, version=args.version)
+                 "trained_on": "Metrica public sample games 1-3, degraded (external only)",
+                 "degrader_profile": args.profile, "seeds": list(args.seeds)}, version=args.version)
     log("saved model and config")
 
 

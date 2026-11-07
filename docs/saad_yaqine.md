@@ -1,7 +1,7 @@
 # Ball possession from automatic tracking — technical document
 
 **Team:** Saad Yaqine · **Challenge:** More than a Hack 2027, Initial Challenge (Phase 1)
-**Submission:** `saad_yaqine.csv`, method `v9` · **Repository:**
+**Submission:** `saad_yaqine.csv`, method `v10` · **Repository:**
 https://github.com/saadyaq/more-than-a-hack-2027 (branch `dev`; the README gives the exact command
 that regenerates the file).
 
@@ -126,7 +126,7 @@ used, and the video was never used.
 
   Three random seeds per game.
 - **Fitting.** `possession/train_learned.py` builds about 520k training rows: every fifth graded
-  frame of each game and seed, in both team orientations. The classifier is scikit-learn's
+  frame of each game and seed (six seeds for v10, about 1 M rows), in both team orientations. The classifier is scikit-learn's
   HistGradientBoostingClassifier (300 iterations, learning rate 0.05, 31 leaves, minimum 200
   samples per leaf, L2 1.0, fixed random state).
 - **Out-of-fold tuning.** For each external game, a classifier trained on the other two games
@@ -144,19 +144,21 @@ used, and the video was never used.
 | tuned hand-written evidence, leave-one-game-out | 0.49 | — | held-out game |
 | v7: learned classifier, first degrader | 0.61 | 0.80 | out-of-fold, held-out game |
 | v8: learned classifier, realistic player loss and speeds | 0.62 | 0.80 | out-of-fold, held-out game |
-| **v9: as v8, dead-ball ball positions reconstructed** | **0.52** | **0.77** | **out-of-fold, held-out game, harder data** |
+| v9: as v8, dead-ball ball positions reconstructed | 0.52 | 0.77 | out-of-fold, held-out game, harder data |
+| **v10: as v9, six degradation seeds per game** | **0.53** | **0.78** | **out-of-fold, held-out game, harder data** |
 
 Every v7, v8 and v9 number is measured on a game the classifier never saw. v9's score is lower
 because its data is harder, not because the model is worse: v7 and v8 were scored on data where the
 ball was mostly missing during stoppages, which made missing ball an easy dead-ball cue. On the
 same realistic data as v9, a v8-style model (trained on v8's data, tested out of fold on v9's)
-scores spellF1 0.39 and macroF1 0.64, against 0.52 and 0.77 for v9. So v9 is the submission. Per
-held-out game: 0.515, 0.525, 0.520. The decoder settings were tuned on the pooled out-of-fold
+scores spellF1 0.39 and macroF1 0.64, against 0.52 and 0.77 for v9. v10 trains on six degradation
+seeds per game instead of three, and is the submission. Per held-out game: 0.529, 0.539, 0.519
+(v9: 0.515, 0.525, 0.520). The decoder settings were tuned on the pooled out-of-fold
 predictions, which is slightly optimistic for four parameters.
 
-### 3.2 Final settings (`possession/learned_v9.json`)
+### 3.2 Final settings (`possession/learned_v10.json`)
 
-T = 0.4 · P_SWITCH = 8 · P_TO_DEAD = 32 · P_FROM_DEAD = 0 · prior (H, A, D) =
+T = 0.2 · P_SWITCH = 2 · P_TO_DEAD = 16 · P_FROM_DEAD = 1 · prior (H, A, D) =
 (0.28, 0.28, 0.44).
 
 ## 4. Possession rules implemented
@@ -200,12 +202,14 @@ T = 0.4 · P_SWITCH = 8 · P_TO_DEAD = 32 · P_FROM_DEAD = 0 · prior (H, A, D) 
 python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 export MTAH_DATA_DIR=/path/to/unpacked/bundle
 scripts/reproduce.sh saad_yaqine
-# -> evaluation/results/saad_yaqine.csv, SHA-1 ee5b89c4c46fcfe9e472e62a86d7d7823a3d2a2f
+# -> evaluation/results/saad_yaqine.csv, SHA-1 wrote
+OK
+cbffc044b141415d91e3781e377fb199cd612c64
 ```
 
 The run is deterministic and takes about 4 s once the tracking is cached. The training can be
 re-run from `scripts/fetch_external_data.sh`, then `python -m possession.train_shape` and
-`python -m possession.train_learned --version v9 --profile v3`. Every design decision is logged in `docs/decisions.md`,
+`python -m possession.train_learned --version v10 --profile v3 --seeds 0 1 2 3 4 5`. Every design decision is logged in `docs/decisions.md`,
 with its measured effect.
 
 ## 7. Tools
