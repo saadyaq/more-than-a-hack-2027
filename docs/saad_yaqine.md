@@ -124,7 +124,7 @@ used, and the video was never used.
   - 0.15 m of time-correlated position noise is added (AR(1), about 1 s, as a filtered tracker
     drifts).
 
-  Three random seeds per game.
+  Six random seeds per game (three before v10).
 - **Fitting.** `possession/train_learned.py` builds about 520k training rows: every fifth graded
   frame of each game and seed (six seeds for v10, about 1 M rows), in both team orientations. The classifier is scikit-learn's
   HistGradientBoostingClassifier (300 iterations, learning rate 0.05, 31 leaves, minimum 200
