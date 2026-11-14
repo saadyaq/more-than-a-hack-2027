@@ -80,6 +80,11 @@ def v10(tracking, window=None):
     return _learned_decode(tracking, "v10")
 
 
+def v11(tracking, window=None):
+    """v10 with the seven DFL open games added to the classifier's training data."""
+    return _learned_decode(tracking, "v11")
+
+
 def _learned_decode(tracking, version):
     """Decode one learned version: its classifier, temperature and penalties."""
     from games import GAME, half_video_blocks
@@ -107,7 +112,7 @@ def _learned_decode(tracking, version):
     return decode(scores, penalties=METHOD_TRANSITION_PENALTIES[version])
 
 
-METHODS = {"baseline": baseline, "v1": v1, "v2": v2, "v3": v3, "v4": v4, "v6": v6, "v7": v7, "v8": v8, "v9": v9, "v10": v10}
+METHODS = {"baseline": baseline, "v1": v1, "v2": v2, "v3": v3, "v4": v4, "v6": v6, "v7": v7, "v8": v8, "v9": v9, "v10": v10, "v11": v11}
 
 
 def validate_method_penalties(methods):

@@ -1,7 +1,7 @@
 # Ball possession from automatic tracking — technical document
 
 **Team:** Saad Yaqine · **Challenge:** More than a Hack 2027, Initial Challenge (Phase 1)
-**Submission:** `saad_yaqine.csv`, method `v10` · **Repository:**
+**Submission:** `saad_yaqine.csv`, method `v11` · **Repository:**
 https://github.com/saadyaq/more-than-a-hack-2027 (branch `dev`; the README gives the exact command
 that regenerates the file).
 
@@ -93,6 +93,15 @@ used, and the video was never used.
   (https://github.com/metrica-sports/sample-data): synchronised tracking and event data. The
   README invites community use and asks for acknowledgement; there is no formal licence file.
   Credit: Metrica Sports.
+- **Second source (v11).** The DFL / Sportec open dataset: seven 2022/23 Bundesliga and
+  2. Bundesliga matches with optical tracking at 25 fps (Bassek, Rein, Weber & Memmert,
+  *Scientific Data* 2025, doi 10.1038/s41597-025-04505-y; CC BY 4.0;
+  https://doi.org/10.6084/m9.figshare.28196177). Each ball frame carries the provider's own
+  possession team and ball-alive flags, so labels need no event synchronisation. Their
+  possession definition is finer than the challenge's (about 200-240 possessions per 45 min
+  against 120-150 for Metrica's event-derived labels), so touches shorter than 0.5 s flanked by
+  the same team are merged back, and the DFL games are used only to train the per-frame
+  classifier: the emission prior and every decoder setting come from Metrica alone.
 - **Labels.** Derived automatically from Metrica's event data on those games, by
   `possession_truth` in `possession/external.py`:
   - an owning event (pass, carry, recovery, set piece, shot) gives the ball to its team from its
@@ -124,15 +133,16 @@ used, and the video was never used.
   - 0.15 m of time-correlated position noise is added (AR(1), about 1 s, as a filtered tracker
     drifts).
 
-  Six random seeds per game (three before v10).
+  Six random seeds per game (three before v10), for both sources.
 - **Fitting.** `possession/train_learned.py` builds about 520k training rows: every fifth graded
-  frame of each game and seed (six seeds for v10, about 1 M rows), in both team orientations. The classifier is scikit-learn's
+  frame of each game and seed (six seeds for v10, about 1 M rows; v11 adds the seven DFL games, about 3.4 M rows in all), in both team orientations. The classifier is scikit-learn's
   HistGradientBoostingClassifier (300 iterations, learning rate 0.05, 31 leaves, minimum 200
   samples per leaf, L2 1.0, fixed random state).
-- **Out-of-fold tuning.** For each external game, a classifier trained on the other two games
-  predicts it. The temperature and the three penalties are tuned by coordinate descent on mean
-  spellF1 over these out-of-fold predictions, so no score comes from a game its model saw. The
-  final classifier is then refitted on all three games.
+- **Out-of-fold tuning.** For each Metrica game, a classifier trained on every other external
+  game (the other two Metrica games and, from v11, the seven DFL games) predicts it. The
+  temperature and the three penalties are tuned by coordinate descent on mean spellF1 over these
+  Metrica out-of-fold predictions, so no score comes from a game its model saw. The final
+  classifier is then refitted on all external games.
 
 ### 3.1 Results on external data (degraded; spellF1 is the competition metric)
 
@@ -145,21 +155,25 @@ used, and the video was never used.
 | v7: learned classifier, first degrader | 0.61 | 0.80 | out-of-fold, held-out game |
 | v8: learned classifier, realistic player loss and speeds | 0.62 | 0.80 | out-of-fold, held-out game |
 | v9: as v8, dead-ball ball positions reconstructed | 0.52 | 0.77 | out-of-fold, held-out game, harder data |
-| **v10: as v9, six degradation seeds per game** | **0.53** | **0.78** | **out-of-fold, held-out game, harder data** |
+| v10: as v9, six degradation seeds per game | 0.53 | 0.78 | out-of-fold, held-out game, harder data |
+| **v11: as v10, classifier also trained on 7 DFL games** | **0.55** | **0.78** | **out-of-fold, held-out Metrica game, same data as v10** |
 
 Every v7, v8 and v9 number is measured on a game the classifier never saw. v9's score is lower
 because its data is harder, not because the model is worse: v7 and v8 were scored on data where the
 ball was mostly missing during stoppages, which made missing ball an easy dead-ball cue. On the
 same realistic data as v9, a v8-style model (trained on v8's data, tested out of fold on v9's)
 scores spellF1 0.39 and macroF1 0.64, against 0.52 and 0.77 for v9. v10 trains on six degradation
-seeds per game instead of three, and is the submission. Per held-out game: 0.529, 0.539, 0.519
-(v9: 0.515, 0.525, 0.520). The decoder settings were tuned on the pooled out-of-fold
+seeds per game instead of three. Per held-out game: 0.529, 0.539, 0.519 (v9: 0.515, 0.525,
+0.520). v11 adds the seven DFL games to every training fold and is the submission. Per held-out
+Metrica game: 0.543, 0.556, 0.539, better than v10 on all three. Scored against DFL's own labels
+(a different definition, so not comparable and never used for tuning), the held-out DFL games
+give spellF1 0.45-0.53, mean 0.48, and macroF1 0.86. The decoder settings were tuned on the pooled out-of-fold
 predictions, which is slightly optimistic for four parameters.
 
-### 3.2 Final settings (`possession/learned_v10.json`)
+### 3.2 Final settings (`possession/learned_v11.json`)
 
-T = 0.2 · P_SWITCH = 2 · P_TO_DEAD = 16 · P_FROM_DEAD = 1 · prior (H, A, D) =
-(0.28, 0.28, 0.44).
+T = 0.4 · P_SWITCH = 4 · P_TO_DEAD = 32 · P_FROM_DEAD = 4 · prior (H, A, D) =
+(0.28, 0.28, 0.44). P_TO_DEAD ends on the edge of its grid.
 
 ## 4. Possession rules implemented
 
@@ -189,12 +203,14 @@ T = 0.2 · P_SWITCH = 2 · P_TO_DEAD = 16 · P_FROM_DEAD = 1 · prior (H, A, D) 
 - **Untuned Smart Tagging weights.** The external games have no Smart Tagging, so its weights
   are rescaled by reasoning, not fitted. Simulating tags to fit them was rejected: the real tags'
   accuracy is unknown, so any simulated noise level would be arbitrary. On the competition match,
-  v10 agrees with the tagged attacking team on 52-58 % of tagged frames (v8: 60-62 %), while its
-  predicted dead-ball share (33-43 %) is closer to football's usual ~40 % than v8's (29-35 %).
-- **Three training games.** More external games with tracking and events would reduce variance,
-  and per-game scores still range from 0.52 to 0.54 (v8: 0.56 to 0.66).
-- **Next steps:** synthesise Smart Tagging-like cues on the external games so their weights can be fitted; add
-  external games.
+  v11 agrees with the tagged attacking team on 52-56 % of tagged frames (v8: 60-62 %), while its
+  predicted dead-ball share (38-41 %) is closer to football's usual ~40 % than v8's (29-35 %).
+- **Few games with challenge-style labels.** The DFL games enlarge the classifier's training
+  data, but only the three Metrica games carry labels that follow the challenge's possession
+  definition, so the decoder is tuned and scored on three games (per-game spellF1 0.54 to 0.56).
+- **Next steps:** synthesise Smart Tagging-like cues on the external games so their weights can be fitted;
+  derive challenge-style labels for the DFL games from their event data, so they can also tune
+  the decoder.
 
 ## 6. Reproduction
 
@@ -202,12 +218,12 @@ T = 0.2 · P_SWITCH = 2 · P_TO_DEAD = 16 · P_FROM_DEAD = 1 · prior (H, A, D) 
 python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 export MTAH_DATA_DIR=/path/to/unpacked/bundle
 scripts/reproduce.sh saad_yaqine
-# -> evaluation/results/saad_yaqine.csv, SHA-1 cbffc044b141415d91e3781e377fb199cd612c64
+# -> evaluation/results/saad_yaqine.csv, SHA-1 ac7666f39555cbecb38ce26861a348f4316c99b8
 ```
 
 The run is deterministic and takes about 4 s once the tracking is cached. The training can be
-re-run from `scripts/fetch_external_data.sh`, then `python -m possession.train_shape` and
-`python -m possession.train_learned --version v10 --profile v3 --seeds 0 1 2 3 4 5`. Every design decision is logged in `docs/decisions.md`,
+re-run from `scripts/fetch_external_data.sh` (Metrica and DFL), then `python -m possession.train_shape` and
+`python -m possession.train_learned --dfl --profile v3 --seeds 0 1 2 3 4 5 --version v11` (add `--dfl-oof` for the DFL held-out scores). Every design decision is logged in `docs/decisions.md`,
 with its measured effect.
 
 ## 7. Tools

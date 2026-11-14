@@ -12,8 +12,8 @@
 
 1. Write the spec: goal, files, interfaces, acceptance criteria, what not to touch.
 2. Call `mcp__codex__codex` with `cwd` = repo root, `sandbox: workspace-write`,
-   `approval-policy: never`. Model for coding tasks: try `gpt-6.1-sol` first (it was once
-   rejected for this ChatGPT account; retest), else `gpt-6.1-terra`, else `gpt-6-luna` for small
+   `approval-policy: never`. Model for coding tasks: use `gpt-6.1-sol` (accepted since
+   2026-11-14), else `gpt-6.1-terra`, else `gpt-6-luna` for small
    tasks — `gpt-6-astra` is overkill for implementation and burns the usage limit. Reasoning
    effort `medium`. Prefer `codex exec ... -o <report>` run in the background over the MCP tool:
    the MCP call aborts after ~40 min without progress. Codex's sandbox cannot write

@@ -156,3 +156,32 @@
   band, consistent on all three games; more training variety, so adopted.
 - Competition (diagnostics only): 276 possessions, D 33-43 %, Smart Tagging agreement 52-58 %.
   SHA-1 cbffc044b141415d91e3781e377fb199cd612c64.
+
+## 2026-11-14 — v11: DFL open games added to the classifier's training data (current submission)
+
+- **Source survey (5 parallel research agents):** DFL / Sportec open data (Bassek et al., Sci Data
+  2025) is the only new source with optical full-pitch tracking, clean labels and a clear licence
+  (CC BY 4.0, 7 matches, 25 fps). Rejected: PFF FC World Cup 2022 (terms forbid ML training and
+  non-personal use, no dataset licence), SkillCorner (10 fps broadcast, possession inferred from
+  the same tracking, no dead-ball flag), SoccerTrack v2 (ball reconstructed from events, so a
+  too-clean ball cue), FOOTPASS (CC BY-NC + NDA, no dead-ball labels), others (no ball or events).
+- **Label check (aggregate, external):** BallPossession / BallStatus present on every ball frame,
+  frames contiguous, possession never changes inside a stoppage, ball never out of pitch while
+  alive. But DFL counts ~200-240 possessions per 45 min vs 120-150 for Metrica's event-derived
+  truth (challenge definition); merging sub-second flickers only closes part of the gap.
+- **Design:** DFL truth = flags, with H/A runs < 0.5 s flanked by the same team merged
+  (`DFL_MIN_SPELL_FRAMES = 12`, deflections do not change possession). DFL games train the
+  per-frame classifier only; emission prior and decoder settings come from Metrica out-of-fold
+  predictions only. Raw XML parsed by our own streaming loader (`possession/dfl.py`), not
+  kloppy, whose defaults silently turn missing possession into "away" and missing coordinates
+  into (0, 0). `fill_dead_ball` now uses the per-game pitch.
+- **Adoption rule fixed before training:** adopt only if Metrica out-of-fold spellF1 beats v10's
+  0.529 under the same protocol (profile v3, seeds 0-5).
+- **Result:** Metrica out-of-fold spellF1 0.546 (v10 0.529), macroF1 0.780 (0.777); per held-out
+  game 0.543 / 0.556 / 0.539 (v10 0.529 / 0.539 / 0.519), better on all three. Held-out DFL games
+  vs DFL's own labels: spellF1 0.45-0.53 (mean 0.483), macroF1 0.86 (not comparable, never used
+  for tuning). Settings T 0.4, P_SWITCH 4, P_TO_DEAD 32 (grid edge), P_FROM_DEAD 4.
+  Training 24 min, 5 GB peak RAM, 3.4 M rows (1.0 M Metrica, 2.4 M DFL).
+- **Competition (diagnostics only, bug check):** 284 possessions, D 38-41 %, Smart Tagging
+  agreement 52-56 % (v10 52-58 %). Deterministic; SHA-1 ac7666f39555cbecb38ce26861a348f4316c99b8.
+- Submission switched to v11 (`scripts/reproduce.sh`). Codex model `gpt-6.1-sol` now accepted.
