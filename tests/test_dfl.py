@@ -194,3 +194,143 @@ def test_training_sources_and_folds(monkeypatch, use_dfl, dfl_oof, override_seed
         assert config['tuning_cases'] == 'metrica out-of-fold'
     else:
         assert saved[0][2] == 'v7' and 'dfl_games' not in config
+
+
+def action(frame, kind='Play', team=0, player='h1'):
+    return dict(frame=frame, kind=kind, team=team, player=player, subtype={})
+
+
+def test_event_parsing_and_timezones(game):
+    root, positions = game
+    text = positions.read_text().replace(' S="999"', ' T="2022-08-26T16:00:00+00:00" S="999"')
+    positions.write_text(text)
+    path = root / 'DFL_03_02_events_raw_DFL-COM-test_DFL-MAT-J03WOH.xml'
+    path.write_text('''<PutDataRequest>
+      <Event EventTime="2022-08-26T18:00:00.400+02:00"><Play Team="home" Player="h1"><Pass/></Play></Event>
+      <Event EventTime="2022-08-26T18:00:00.800+02:00"><ThrowIn><Play Team="guest" Player="a1"/></ThrowIn></Event>
+      <Event EventTime="2022-08-26T18:00:01.000+02:00"><TacklingGame WinnerTeam="guest" Winner="a2" WinnerRole="Defender" PossessionChange="true"/></Event>
+      <Event EventTime="2022-08-26T18:00:01.200+02:00"><ShotAtGoal Team="home" Player="h2"><SavedShot/></ShotAtGoal></Event>
+      <Event EventTime="2022-08-26T18:00:05+02:00"><BallClaiming Team="home"/></Event>
+      <Event><Delete/></Event><Event><Foul/></Event>
+    </PutDataRequest>''')
+    records = dfl.load_dfl_events('J03WOH', root)
+    assert [e['frame'] for e in records] == [10, 20, 25, 30]
+    assert [e['team'] for e in records] == [0, 1, 1, 0]
+    assert [e['player'] for e in records] == ['h1', 'a1', 'a2', 'h2']
+    assert records[1]['subtype'] == {'set_piece': 'ThrowIn'}
+    assert records[2]['subtype'] == {'WinnerRole': 'Defender', 'PossessionChange': 'true'}
+    assert records[3]['subtype'] == {'outcome': 'SavedShot'}
+    clean, blocks, _, event_labels, alive, stats = dfl.dfl_truth_details('J03WOH', root)
+    assert stats['events_dropped'] == 1
+    assert clean.player_ids.tolist() == ['h1', 'h2', 'h3', 'a1', 'a2']
+    np.testing.assert_array_equal(event_labels == 'D', ~alive)
+    assert blocks == [(1, 0, 59), (2, 60, 119)]
+    # Cache retains alignment metadata, alive and raw flags as well as default truth.
+    np.testing.assert_array_equal(dfl.load_dfl_game('J03WOH', root, truth='events')[2], event_labels)
+
+
+def test_snap_events():
+    tracking = Tracking(np.full((12, 1, 3), .2), np.zeros((12, 3)), np.array([0]), (100., 64.))
+    tracking.player_ids = ['h1']
+    tracking.blocks = [(1, 0, 5), (2, 6, 11)]
+    tracking.players[4, 0, :2] = .01
+    tracking.players[6, 0, :2] = 0
+    events = [action(1), action(8, player='unknown')]
+    snapped, stats = dfl.snap_events(events, tracking, np.ones(12, bool))
+    assert [e['frame'] for e in snapped] == [4, 8]
+    assert events[0]['frame'] == 1
+    assert stats == {'snap_share': .5, 'median_shift_s': .06}
+    tracking.players[4, 0, :2] = .2
+    assert dfl.snap_events([action(1)], tracking, np.ones(12, bool))[0][0]['frame'] == 1
+    # A finite nearby touch outside the requested time window cannot attract the event.
+    tracking.players[4, 0, :2] = 0
+    assert dfl.snap_events([action(0)], tracking, np.ones(12, bool), window_s=.04)[0][0]['frame'] == 0
+
+
+def test_event_truth_restart_persistence_fallback():
+    alive = np.ones(32, bool)
+    alive[8:11] = False
+    blocks = [(1, 1, 24), (2, 27, 30)]
+    events = [action(3), action(5, team=1), action(9, team=0),
+              action(13, team=1), action(16, 'TacklingGame', team=0),
+              action(18, team=0), action(20, 'TacklingGame', team=1)]
+    flags = np.full(32, 'H')
+    flags[29:] = 'A'
+    truth, stats = dfl.event_truth(events, alive, blocks, 32, flags=flags, return_stats=True)
+    assert ''.join(truth[:8]) == 'XHHHHAAA'
+    assert ''.join(truth[8:16]) == 'DDDAAAAA'
+    assert (truth[16:25] == 'H').all()  # confirmed tackle, then persistence; unconfirmed ignored.
+    assert ''.join(truth[25:]) == 'XXHHAAX'
+    assert stats['fallback_runs'] == 1
+    assert np.all(truth[~alive] == 'D')
+
+
+def test_tackle_followup_limit_and_blocks():
+    events = [action(0), action(5, 'TacklingGame', team=1), action(56, team=1),
+              action(59, 'TacklingGame', team=0), action(61)]
+    truth = dfl.event_truth(events, np.ones(70, bool), [(1, 0, 59), (2, 60, 69)], 70)
+    assert (truth[:56] == 'H').all()  # 51 frames exceeds the 2-second follow-up.
+    assert (truth[56:60] == 'A').all()  # confirmation cannot cross the block boundary.
+    assert (truth[60:] == 'H').all()
+
+
+def test_dead_set_piece_restart():
+    alive = np.array([False, False, True, True, False, True, True])
+    events = [action(1, 'KickOff', 1), action(4, 'Play', 0)]
+    flags = np.full(7, 'H')
+    truth, stats = dfl.event_truth(events, alive, [(1, 0, 6)], 7, flags=flags, return_stats=True)
+    assert ''.join(truth) == 'DDAADHH'
+    assert stats['fallback_runs'] == 1
+
+
+def test_all_game_tuning_with_distinct_score_truth(monkeypatch, capsys):
+    from possession import train_learned as train
+    saved, truths_scored, prediction_sources = [], [], []
+    def cases(games, seeds, profile, truth='flags'):
+        assert truth == 'flags'
+        return [(game, seed, game, [(1, 0, 2)], np.array(list('HAD')))
+                for game in games for seed in seeds]
+    def dfl_cases(games, seeds, **kwargs):
+        return cases(['dfl:' + game for game in games], seeds, **kwargs)
+    monkeypatch.setattr(train, 'load_cases', cases)
+    monkeypatch.setattr(train, 'load_dfl_cases', dfl_cases)
+    monkeypatch.setattr(train, 'load_dfl_game', lambda game, truth: (None, None, np.array(list('AAD'))))
+    monkeypatch.setattr(train, 'training_rows', lambda tracking, blocks, truth:
+                        (np.ones((1, 1)), np.array([0 if tracking in train.GAMES else 2])))
+    monkeypatch.setattr(train, 'fit', lambda *args: None)
+    def predict(model, tracking, blocks):
+        prediction_sources.append(tracking)
+        return tracking
+    monkeypatch.setattr(train, 'predict_proba', predict)
+    def emissions(probs, prior, temperature):
+        np.testing.assert_allclose(prior, [6/13, 0., 7/13])
+        return probs, temperature
+    monkeypatch.setattr(train, 'emissions', emissions)
+    monkeypatch.setattr(train, 'decode', lambda evidence, **kwargs: evidence)
+    def score(truth, prediction):
+        game, temperature = prediction
+        is_metrica = game in train.GAMES
+        assert ''.join(truth) == ('HAD' if is_metrica else 'AAD')
+        truths_scored.append(is_metrica)
+        value = (.95 if is_metrica else 0.) if temperature == .1 else (0. if is_metrica else .6)
+        return dict(spell_f1_mean=value, macro_f1=value, n_pred_spells=1., n_gt_spells=1.)
+    monkeypatch.setattr(train, 'score', score)
+    monkeypatch.setattr(train, 'GRID', {'TEMPERATURE': [.1, .2]})
+    monkeypatch.setattr(train, 'save', lambda model, config, version: saved.append(config))
+    train.main(['--dfl', '--dfl-oof', '--dfl-score-truth', 'events', '--tune-on', 'all',
+                '--seeds', '0', '1', '--dfl-seeds', '0'])
+    assert saved[0]['temperature'] == .2
+    assert saved[0]['dfl_truth'] == 'flags'
+    assert saved[0]['dfl_score_truth'] == 'events'
+    assert saved[0]['tuning_cases'] == 'all-10 out-of-fold'
+    assert saved[0]['snap_window_s'] == dfl.SNAP_WINDOW_S
+    assert len(prediction_sources) == 13
+    assert 'all-10 game-weighted mean spellF1 0.4200' in capsys.readouterr().out
+
+
+@pytest.mark.parametrize('options', [['--tune-on', 'all'], ['--dfl-score-truth', 'events']])
+def test_training_options_require_oof(options):
+    from possession.train_learned import main
+    with pytest.raises(SystemExit) as error:
+        main(options)
+    assert error.value.code == 2

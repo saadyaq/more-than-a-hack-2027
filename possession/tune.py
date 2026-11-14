@@ -102,19 +102,20 @@ def load_cases(games, seeds, profile="v1"):
     return cases
 
 
-def load_dfl_cases(match_ids, seeds, profile="v1"):
+def load_dfl_cases(match_ids, seeds, profile="v1", truth="flags"):
     """DFL cases use distinct string keys and the same degradation as Metrica."""
     from possession.dfl import load_dfl_game
 
     cases = []
     for match_id in match_ids:
-        tracking, blocks, truth = load_dfl_game(match_id)
+        tracking, blocks, labels = (load_dfl_game(match_id) if truth == "flags"
+                                    else load_dfl_game(match_id, truth=truth))
         source, degrader = tracking, profile
         if profile == "v3":
-            source, degrader = fill_dead_ball(tracking, truth, blocks=blocks), "v2"
+            source, degrader = fill_dead_ball(tracking, labels, blocks=blocks), "v2"
         for seed in seeds:
             cases.append(("dfl:" + match_id, seed,
-                          degrade(source, seed, blocks=blocks, profile=degrader), blocks, truth))
+                          degrade(source, seed, blocks=blocks, profile=degrader), blocks, labels))
     return cases
 
 
