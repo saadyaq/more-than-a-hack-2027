@@ -167,7 +167,11 @@ seeds per game instead of three. Per held-out game: 0.529, 0.539, 0.519 (v9: 0.5
 0.520). v11 adds the seven DFL games to every training fold and is the submission. Per held-out
 Metrica game: 0.543, 0.556, 0.539, better than v10 on all three. Scored against DFL's own labels
 (a different definition, so not comparable and never used for tuning), the held-out DFL games
-give spellF1 0.45-0.53, mean 0.48, and macroF1 0.86. The decoder settings were tuned on the pooled out-of-fold
+give spellF1 0.45-0.53, mean 0.48, and macroF1 0.86. With challenge-style labels rebuilt from
+the DFL event feed (same rules as for Metrica, events snapped to the tracking, 117-144 possessions
+per 45 min against 122-153 for Metrica), v11 scores 0.545 on the seven held-out DFL games, the same
+as on Metrica: the estimate holds on a second league and tracking provider. Tuning the decoder on
+all ten games instead was tested and rejected (Metrica 0.49, all-ten mean 0.540 vs 0.546). The decoder settings were tuned on the pooled out-of-fold
 predictions, which is slightly optimistic for four parameters.
 
 ### 3.2 Final settings (`possession/learned_v11.json`)

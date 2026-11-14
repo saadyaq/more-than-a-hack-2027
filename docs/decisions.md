@@ -185,3 +185,23 @@
 - **Competition (diagnostics only, bug check):** 284 possessions, D 38-41 %, Smart Tagging
   agreement 52-56 % (v10 52-58 %). Deterministic; SHA-1 ac7666f39555cbecb38ce26861a348f4316c99b8.
 - Submission switched to v11 (`scripts/reproduce.sh`). Codex model `gpt-6.1-sol` now accepted.
+
+## 2026-11-14 — Challenge-style DFL labels; tuning on all 10 games rejected (v11 stays)
+
+- **Labels:** DFL truth rebuilt from the event feed with Metrica's rules (`dfl.event_truth`):
+  events snapped to the frame where their player is nearest the ball within ±3 s (93-98 %
+  snapped, median shift 0.9-1.7 s), dead ball from BallStatus, won duels and unclassified touches
+  (OtherBallAction) own only with a same-team follow-up within 2 s. Possessions per 45 min:
+  117-144 (Metrica 122-153; provider flags 162-225; without the OtherBallAction rule 151-203,
+  with it confirmed only by other kinds 70-98 team changes, too few). Choice made on the
+  challenge definition, with the rate as a sanity check.
+- **Adoption rule fixed before training:** B (classifier on event truth, decoder tuned on all 10
+  games, game-weighted) replaces A (v11 setup) only if its all-10 mean out-of-fold spellF1 is
+  higher and Metrica loses at most 0.01. Both scored on challenge-style truth everywhere.
+- **Result:** A all-10 0.5455 (Metrica 0.546, DFL 0.545); B all-10 0.5400 (Metrica 0.492,
+  DFL 0.561). B fails both conditions: tuning on DFL lowers P_FROM_DEAD to 0 and raises P_SWITCH
+  to 8, predicting too few Metrica possessions (201 vs 282). The two label sources still differ in
+  style, and the competition's own labels are unknown, so v11 stays.
+- **New evidence for v11:** on 7 unseen DFL games with challenge-style labels it scores spellF1
+  0.51-0.58 (mean 0.545), the same as on Metrica (0.546): the estimate holds on a second league
+  and a second tracking provider.
