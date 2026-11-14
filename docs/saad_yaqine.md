@@ -177,7 +177,8 @@ predictions, which is slightly optimistic for four parameters.
 ### 3.2 Final settings (`possession/learned_v11.json`)
 
 T = 0.4 · P_SWITCH = 4 · P_TO_DEAD = 32 · P_FROM_DEAD = 4 · prior (H, A, D) =
-(0.28, 0.28, 0.44). P_TO_DEAD ends on the edge of its grid.
+(0.28, 0.28, 0.44). With the grids widened (P_TO_DEAD up to 128, P_FROM_DEAD_EXTRA up to 16),
+the search returns the same settings, so none of them sits on a grid edge.
 
 ## 4. Possession rules implemented
 

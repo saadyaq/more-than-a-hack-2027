@@ -180,7 +180,7 @@
 - **Result:** Metrica out-of-fold spellF1 0.546 (v10 0.529), macroF1 0.780 (0.777); per held-out
   game 0.543 / 0.556 / 0.539 (v10 0.529 / 0.539 / 0.519), better on all three. Held-out DFL games
   vs DFL's own labels: spellF1 0.45-0.53 (mean 0.483), macroF1 0.86 (not comparable, never used
-  for tuning). Settings T 0.4, P_SWITCH 4, P_TO_DEAD 32 (grid edge), P_FROM_DEAD 4.
+  for tuning). Settings T 0.4, P_SWITCH 4, P_TO_DEAD 32, P_FROM_DEAD 4.
   Training 24 min, 5 GB peak RAM, 3.4 M rows (1.0 M Metrica, 2.4 M DFL).
 - **Competition (diagnostics only, bug check):** 284 possessions, D 38-41 %, Smart Tagging
   agreement 52-56 % (v10 52-58 %). Deterministic; SHA-1 ac7666f39555cbecb38ce26861a348f4316c99b8.
@@ -205,3 +205,10 @@
 - **New evidence for v11:** on 7 unseen DFL games with challenge-style labels it scores spellF1
   0.51-0.58 (mean 0.545), the same as on Metrica (0.546): the estimate holds on a second league
   and a second tracking provider.
+
+## 2026-11-14 — Wider decoder grids: v11's settings confirmed
+
+- P_TO_DEAD grid extended to 64 and 128, P_FROM_DEAD_EXTRA to 8 and 16 (v11 had ended on 32 and
+  4, the old edges). Re-run of v11's training (same data, seeds and protocol): same optimum,
+  T 0.4, P_SWITCH 4, P_TO_DEAD 32, P_FROM_DEAD 4, Metrica out-of-fold spellF1 0.5459 unchanged.
+  Neither setting is on a grid edge any more; the model and submission are unchanged.

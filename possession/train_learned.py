@@ -21,8 +21,8 @@ from possession.dfl import DFL_GAMES, DFL_MIN_SPELL_FRAMES, SNAP_WINDOW_S, SNAP_
 GRID = {  # W_CONTROL-free scale: emissions are log-likelihood ratios times the temperature.
     "TEMPERATURE": [0.02, 0.05, 0.1, 0.2, 0.4, 0.8],
     "P_SWITCH": [1.0, 2.0, 4.0, 8.0, 16.0, 32.0],
-    "P_TO_DEAD": [1.0, 2.0, 4.0, 8.0, 16.0, 32.0],
-    "P_FROM_DEAD_EXTRA": [0.0, 1.0, 4.0],
+    "P_TO_DEAD": [1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0, 128.0],  # 64 and 128 added: v11 ended on 32.
+    "P_FROM_DEAD_EXTRA": [0.0, 1.0, 4.0, 8.0, 16.0],  # 8 and 16 added: v11 ended on 4.
 }
 START = {"TEMPERATURE": 0.1, "P_SWITCH": 8.0, "P_TO_DEAD": 8.0, "P_FROM_DEAD_EXTRA": 0.0}
 MAX_PASSES = 4
