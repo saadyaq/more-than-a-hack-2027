@@ -189,10 +189,10 @@ T = 0.2 · P_SWITCH = 2 · P_TO_DEAD = 16 · P_FROM_DEAD = 1 · prior (H, A, D) 
 - **Untuned Smart Tagging weights.** The external games have no Smart Tagging, so its weights
   are rescaled by reasoning, not fitted. Simulating tags to fit them was rejected: the real tags'
   accuracy is unknown, so any simulated noise level would be arbitrary. On the competition match,
-  v9 agrees with the tagged attacking team on 53-58 % of tagged frames (v8: 60-62 %), while its
-  predicted dead-ball share (35-43 %) is closer to football's usual ~40 % than v8's (29-35 %).
+  v10 agrees with the tagged attacking team on 52-58 % of tagged frames (v8: 60-62 %), while its
+  predicted dead-ball share (33-43 %) is closer to football's usual ~40 % than v8's (29-35 %).
 - **Three training games.** More external games with tracking and events would reduce variance,
-  and per-game scores already range from 0.56 to 0.64.
+  and per-game scores still range from 0.52 to 0.54 (v8: 0.56 to 0.66).
 - **Next steps:** synthesise Smart Tagging-like cues on the external games so their weights can be fitted; add
   external games.
 
