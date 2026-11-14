@@ -95,10 +95,26 @@ def load_cases(games, seeds, profile="v1"):
         source, degrader = tracking, profile
         if profile == "v3":
             # v3 = v2's player loss and speeds, on tracking whose dead-ball gaps were filled.
-            source, degrader = fill_dead_ball(tracking, truth), "v2"
+            source, degrader = fill_dead_ball(tracking, truth, blocks=blocks), "v2"
         for seed in seeds:
             cases.append((game, seed, degrade(source, seed, blocks=blocks, profile=degrader),
                           blocks, truth))
+    return cases
+
+
+def load_dfl_cases(match_ids, seeds, profile="v1"):
+    """DFL cases use distinct string keys and the same degradation as Metrica."""
+    from possession.dfl import load_dfl_game
+
+    cases = []
+    for match_id in match_ids:
+        tracking, blocks, truth = load_dfl_game(match_id)
+        source, degrader = tracking, profile
+        if profile == "v3":
+            source, degrader = fill_dead_ball(tracking, truth, blocks=blocks), "v2"
+        for seed in seeds:
+            cases.append(("dfl:" + match_id, seed,
+                          degrade(source, seed, blocks=blocks, profile=degrader), blocks, truth))
     return cases
 
 

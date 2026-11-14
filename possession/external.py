@@ -234,7 +234,7 @@ def load_metrica_events(game_id, root=None):
     return events
 
 
-def fill_dead_ball(tracking, truth):
+def fill_dead_ball(tracking, truth, blocks=None):
     """Copy of tracking with the ball reconstructed where it is missing during dead-ball truth.
 
     The Metrica sample tracking drops the ball at almost every stoppage (82-90 % of its missing
@@ -254,7 +254,7 @@ def fill_dead_ball(tracking, truth):
         frames = frames[inside]
         for axis in (0, 1):
             ball[frames, axis] = np.interp(frames, known, ball[known, axis])
-    ball = with_speeds(ball[:, :2])
+    ball = with_speeds(ball[:, :2], pitch=tracking.pitch, blocks=blocks)
     return Tracking(tracking.players, ball.astype(np.float32), tracking.team_of_slot, tracking.pitch)
 
 
